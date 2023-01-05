@@ -26,6 +26,9 @@ r3 = m3to2 $ exRegister `seqTuple` (exRegister `seqTuple` (once exRegister))
 r2imm :: AstPosition p => ArgsExtractor p (Word32, Word32, Word32)
 r2imm = m3to2 $ exRegister `seqTuple` (exRegister `seqTuple` (once exNum))
 
+r2label :: AstPosition p => ArgsExtractor p (Word32, Word32, Word32)
+r2label = m3to2 $ exRegister `seqTuple` (exRegister `seqTuple` (once exLabelRef))
+
 label1 :: ArgsExtractor p Word32
 label1 = fromIntegral `mapExtractor` once exLabelRef
 
@@ -41,9 +44,9 @@ ops = createOpcodes [ defineOp ["nop"] noargs (return . noArgsCode 0)
                     , defineOp ["addi"] r2imm (return . iTypeCode 3)
                     , defineOp ["subi"] r2imm (return . iTypeCode 4)
                     , defineOp ["hlt"] noargs (return . noArgsCode 5)
-                    , defineOp ["blt"] r2imm (return . iTypeCode 6)
-                    , defineOp ["beq"] r2imm (return . iTypeCode 7)
-                    , defineOp ["bneq"] r2imm (return . iTypeCode 8)
+                    , defineOp ["blt"] r2label (return . iTypeCode 6)
+                    , defineOp ["beq"] r2label (return . iTypeCode 7)
+                    , defineOp ["bneq"] r2label (return . iTypeCode 8)
                     , defineOp ["debugDumpState"] noargs (return . noArgsCode 9)
                     ]
 

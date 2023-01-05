@@ -35,7 +35,7 @@ type Parser = Parsec String Text
 scP :: Bool -> Parser ()
 scP b = L.space
     (skipSome $ satisfy $ \c -> (b || c /= '\n') && isSpace c)
-    (try (L.skipLineComment "//") <|> try (L.skipLineComment "#"))
+    (try (L.skipLineComment "//") <|> try (L.skipLineComment "#") <|> try (L.skipLineComment ";"))
     (L.skipBlockComment "/*" "*/")
 
 scExpr :: Parser ()
