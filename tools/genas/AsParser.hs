@@ -12,6 +12,10 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 data SourceSpan = SourceSpan { startLoc :: SourcePos, endLoc :: SourcePos }
 
+instance AstPosition SourceSpan where
+    spanning SourceSpan { startLoc } SourceSpan { endLoc } = SourceSpan { startLoc, endLoc }
+    after SourceSpan { endLoc=startLoc } sp2 = sp2 { startLoc }
+
 instance Show (SourceSpan) where
     show SourceSpan { startLoc, endLoc } = (sourceName startLoc) ++ ":"
         ++ (show $ unPos $ sourceLine startLoc) ++ ":" ++ (show $ unPos $ sourceColumn startLoc)

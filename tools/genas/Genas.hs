@@ -87,6 +87,10 @@ instance WithPosition AsmArg where
     getPosition AsmLabel { position } = position
     getPosition NothingArg { position } = position
 
+class AstPosition p where
+    spanning :: p -> p -> p
+    after :: p -> p -> p
+
 type AsmMonad p r = ErrorCollectorM (AsmError p) r
 
 type ArgExtractor p a = AsmArg p -> AsmMonad p a
@@ -94,20 +98,29 @@ type ArgsExtractor p a = AsmLine p -> AsmMonad p a
 type AsmFunc p a = a -> AsmMonad p B.Builder
 type AsmOpFunc p = AsmFunc p (AsmLine p)
 
+gotWhat :: AsmArg p -> String
+gotWhat AsmNumber { } = "number"
+gotWhat AsmRegister { } = "register"
+gotWhat AsmLabel { } = "label reference"
+gotWhat NothingArg { } = "<nothing>"
+
+exArg1Err expected other = 0 <$ createError (getPosition other) ("Expected a " ++ expected ++ ", but got: " ++ gotWhat other) id
+
 exNum :: ArgExtractor p Integer
 exNum AsmNumber { value } = return value
-exNum other = 0 <$ createError (getPosition other) "Expected a number" id
+exNum other = exArg1Err "number" other
 
 exRegister AsmRegister { code } = return code
-exRegister other = 0 <$ createError (getPosition other) "Expected a register" id
+exRegister other = exArg1Err "register" other
 
 exLabelRef AsmLabel { address } = return address
-exLabelRef other = 0 <$ createError (getPosition other) "Expected a label" id
+exLabelRef other = exArg1Err "label reference" other
 
 once :: ArgExtractor p a -> ArgsExtractor p a
 once ex AsmOp { args=AsmArgList { argList = [e] } } = ex e
 once ex AsmOp { args=AsmArgList { argList = [], position } } = do
-    createError position "Argument expected here" id
+    -- Errors will come down the line for each missing argument
+    -- createError position "Argument expected here" id
     ex NothingArg { position }
 once ex AsmOp { args=AsmArgList { argList = (e:sndA:rest) } } = do
     createError (getPosition sndA) "Excess arguments" id
@@ -120,19 +133,30 @@ noargs AsmOp { args=AsmArgList { argList=(e:rest) } } = do
     createError (getPosition e) "No arguments expected" id
     return ()
 
-seqTuple :: ArgExtractor p a -> ArgsExtractor p b -> ArgsExtractor p (a, b)
+advPos :: AstPosition p => AsmArgList p -> p
+advPos AsmArgList { argList=(fst:sndA:xs), position } = getPosition sndA
+advPos AsmArgList { argList=(fst:xs), position } = after (getPosition fst) position
+
+seqTuple :: AstPosition p => ArgExtractor p a -> ArgsExtractor p b -> ArgsExtractor p (a, b)
 seqTuple hd tl op@AsmOp { args=args1@AsmArgList { argList=[], position } } = do
-    createError position "Argument expected here" id
+    -- Errors will come down the line for each missing argument
+    -- createError position "Argument expected here" id
     first <- hd NothingArg { position }
     snd <- tl $ op { args=args1 { argList=[] } }
     return (first, snd)
-seqTuple hd tl op@AsmOp { args=args1@AsmArgList { argList = (fst:xs) } } = do
+seqTuple hd tl op@AsmOp { args=args1@AsmArgList { argList = (fst:xs), position=argsPos } } = do
     first <- hd fst
-    rest <- tl $ op { args=args1 { argList=xs } }
+    rest <- tl $ op { args=args1 { argList=xs, position=advPos args1 } }
     return $ (first, rest)
 
 mapExtractor :: (a -> b) -> ArgsExtractor p a -> ArgsExtractor p b
-mapExtractor mapper ex args = do r <- ex args; return $ mapper r
+mapExtractor mapper ex args = do
+    r <- ex args
+    return $ mapper r
+
+m3to2 :: (Integral a, Integral b, Integral c, Integral aR, Integral bR, Integral cR, AstPosition p) =>
+    ArgsExtractor p (a, (b, c)) -> ArgsExtractor p (aR, bR, cR)
+m3to2 = ((\(a,(b,c)) -> (fromIntegral a, fromIntegral b, fromIntegral c)) `mapExtractor`)
 
 data Opcode p = Opcode { names :: [String], encode :: AsmOpFunc p }
 
@@ -140,7 +164,8 @@ defineOp :: [String] -> ArgsExtractor p a -> AsmFunc p a -> Opcode p
 defineOp names ex asm = Opcode { names, encode=asmF }
     where asmF args = do extracted <- ex args; asm extracted
 
-data Assembler p = Assembler { opcodes :: M.Map String (Opcode p)
+type OpcodesTable p = M.Map String (Opcode p)
+data Assembler p = Assembler { opcodes :: OpcodesTable p
                              , getRegister :: String -> Maybe Int
                              , defaultRegister :: Int
                              }
