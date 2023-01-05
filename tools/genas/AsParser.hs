@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module AsParser where
 
 import Genas
@@ -9,7 +10,14 @@ import Text.Megaparsec hiding (Label)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
-type AST = ASTLine SourceSpan
+data SourceSpan = SourceSpan { startLoc :: SourcePos, endLoc :: SourcePos }
+
+instance Show (SourceSpan) where
+    show SourceSpan { startLoc, endLoc } = (sourceName startLoc) ++ ":"
+        ++ (show $ unPos $ sourceLine startLoc) ++ ":" ++ (show $ unPos $ sourceColumn startLoc)
+        ++ "-" ++ (show $ unPos $ sourceLine endLoc) ++ ":" ++ (show $ unPos $ sourceColumn endLoc)
+
+type AST = AstLine SourceSpan
 
 spanned :: (TraversableStream s, MonadParsec e s m) => m (SourceSpan -> b) -> m b
 spanned baseParser = do
@@ -44,23 +52,23 @@ ident = (:) <$> letterChar <*> many alphaNumChar
 num :: Parser Integer
 num = do char '$'; L.decimal
 
-labelRef :: Parser String
-labelRef = do char ':'; ident
+labelRefP :: Parser String
+labelRefP = do char ':'; ident
 
-labelLine = lexeme2 $ do i <- spanned $ ASTId <$> ident; char ':'; return i 
+labelLine = (Label <$>) $ lexeme2 $ do i <- ident; char ':'; return i 
 
 arg :: Parser (AstArg SourceSpan)
 arg = spanned p1
-    where p1 = (try (Number <$> num)) <|> (try (Register <$> ident)) <|> (LabelRef <$> labelRef)
+    where p1 = (try (Number <$> num)) <|> (try (Register <$> ident)) <|> (LabelRef <$> labelRefP)
 
 opParser = do
-    name <- spanned $ ASTId <$> lexeme1 ident
-    args <- spanned $ ASTArglist <$> (lexeme1 arg) `sepBy` (lexeme2 $ char ',')
+    name <- spanned $ AstId <$> lexeme1 ident
+    args <- (lexeme1 arg) `sepBy` (lexeme2 $ char ',')
     scNl
     return $ Op (name) args
 
-astLine :: Parser (ASTLine SourceSpan)
-astLine = spanned $ (try opParser <|> Label <$> labelLine)
+astLine :: Parser (AstLine SourceSpan)
+astLine = spanned $ (try opParser <|> try labelLine)
 
 src :: Parser (AstTU SourceSpan)
 src = spanned $ do

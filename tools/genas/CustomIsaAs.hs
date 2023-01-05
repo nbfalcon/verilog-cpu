@@ -3,29 +3,10 @@ module CustomIsaAs where
 import Genas
 import Data.ByteString.Builder as B
 import Data.Word
+import Text.Read
 import Data.Maybe
 import qualified Data.Map as M
 import Data.Bits
-
-reg :: AsmExtractor p Word32
-reg (Register ('r':r) p) labels = return $ fromIntegral $ read r
-reg x labels = asmErrorL (getPosition x) "Expected a register"
-
-num :: AsmExtractor p Word32
-num (Number n p) labels = return $ fromIntegral n
-num x labels = asmErrorL (getPosition x) "Expected a number"
-
-label :: AsmExtractor p Word32
-label (LabelRef labelName lp) Nothing = return 0
-label (LabelRef labelName lp) (Just labels) =
-    fromMaybe (asmErrorL lp ("Undefined label: " ++ labelName))
-              (Right <$> fromIntegral <$> M.lookup labelName labels)
-label x labels = asmErrorL (getPosition x) "Expected a label"
-
-r3 :: (AsmExtractor p1 Word32, AsmExtractor p2 Word32, AsmExtractor p3 Word32)
-r3 = (reg,reg,reg)
-
-rrn = (reg,reg,num)
 
 rTypeCode :: Word32 -> Word32 -> (Word32, Word32, Word32) -> B.Builder
 rTypeCode opcode xFunct (rD, rS1, rS2) = word32BE w
@@ -38,10 +19,27 @@ iTypeCode opcode (rD, rS1, imm15) = word32BE w
 jaTypeCode :: Word32 -> (Word32) -> B.Builder
 jaTypeCode opcode (dest) = word32BE $ opcode .|. (dest `shiftL` 7)
 
-nop = defineOp0 ["nop"] (word32LE 0)
-add = defineOp3 ["add"] r3 (return . rTypeCode 1 0)
-sub = defineOp3 ["sub"] r3 (return . rTypeCode 1 1)
-addi = defineOp3 ["addi"] rrn (return . iTypeCode 2)
-j = defineOp1 ["j"] (label) (return . jaTypeCode 3)
+m3to2 :: (Integral a, Integral b, Integral c) => ArgsExtractor p (a, (b, c)) -> ArgsExtractor p (Word32, Word32, Word32)
+m3to2 = ((\(a,(b,c)) -> (fromIntegral a, fromIntegral b, fromIntegral c)) `mapExtractor`)
 
-asm = Assembler { opcodes = [nop, add, sub, addi, j] }
+label1 = fromIntegral `mapExtractor` once exLabelRef
+r3 = m3to2 $ exRegister `seqTuple` (exRegister `seqTuple` (once exRegister))
+r2imm = m3to2 $ exRegister `seqTuple` (exRegister `seqTuple` (once exNum))
+
+parseRegister :: String -> Maybe Int
+parseRegister ('r':n) = readMaybe n
+parseRegister other = Nothing
+
+ops = createOpcodes [ defineOp ["nop"] noargs (\v -> return $ word32LE 0)
+                    , defineOp ["add"] r3 (return . rTypeCode 1 0)
+                    , defineOp ["sub"] r3 (return . rTypeCode 1 1)
+                    , defineOp ["addi"] r2imm (return . iTypeCode 2)
+                    , defineOp ["j"] label1 (return . jaTypeCode 3)]
+asm = Assembler { opcodes=ops, defaultRegister=0, getRegister=parseRegister }
+-- nop = defineOp0 ["nop"] (word32LE 0)
+-- add = defineOp3 ["add"] r3 (return . rTypeCode 1 0)
+-- sub = defineOp3 ["sub"] r3 (return . rTypeCode 1 1)
+-- addi = defineOp3 ["addi"] rrn (return . iTypeCode 2)
+-- j = defineOp1 ["j"] (label) (return . jaTypeCode 3)
+
+-- asm = Assembler { opcodes = [nop, add, sub, addi, j] }

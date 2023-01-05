@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import ErrorCollectorM
 import Genas
 import AsParser
 import Encode
@@ -19,11 +20,18 @@ mapLeft mapper (Left lv) = Left $ mapper lv
 mapLeft mapper (Right rv) = Right rv
 
 -- runAssembler :: Assembler p -> FilePath -> FilePath -> IO ()
-runAssembler asm inputF outputF =  runExceptT $ do
+runAssembler asm inputF outputF = runExceptT $ do
     source <- liftIO $ TIO.readFile inputF
     parsed <- liftEither $ mapLeft show $ parse src inputF source
     liftIO $ putStr $ show parsed
-    assembled <- liftEither $ mapLeft show $ assemble asm parsed
+    
+    let (errors, assembled) = runErrorCollector $ assemble asm parsed
+    liftIO $ case errors of
+        [] -> putStrLn "Assembly successful"
+        errs -> do
+             putStrLn "The following errors were encountered (failing assembly):"
+             putStr $ errors >>= ((++ "\n") . show)
+
     liftIO $ B.writeFile (outputF ++ ".bin") assembled
     liftIO $ B.writeFile (outputF ++ ".hex") $ hexEncodeG $ B.toLazyByteString assembled
     return ()

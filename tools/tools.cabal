@@ -29,6 +29,7 @@ executable genas
     other-modules:
         AsParser
         Genas
+        ErrorCollectorM
         CustomIsaAs
         Encode
 
