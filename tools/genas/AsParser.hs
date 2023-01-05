@@ -51,7 +51,7 @@ lexeme2 :: Parser a -> Parser a
 lexeme2 = L.lexeme scNl
 
 ident :: Parser String
-ident = (:) <$> letterChar <*> many alphaNumChar
+ident = (:) <$> (letterChar <|> char '_') <*> many (alphaNumChar <|> (char '_'))
 
 num :: Parser Integer
 num = do char '$'; L.decimal
@@ -71,8 +71,20 @@ opParser = do
     scNl
     return $ Op (name) args
 
+data StringConstantType = ASCIZ | ASCII
+
+stringLiteral = (char '"' >> manyTill L.charLiteral (char '"')) <|> (char '\'' >> manyTill L.charLiteral (char '\''))
+
+stringConstant = do
+    constType <- lexeme2 $ (try $ ASCIZ <$ string ".asciz") <|> (try $ ASCII <$ string ".ascii")
+    let lit = lexeme2 stringLiteral
+    let lit' = case constType of
+                ASCIZ -> (++ "\0")
+                ASCII -> id
+    AstStringConstant <$> lit' <$> lit 
+
 astLine :: Parser (AstLine SourceSpan)
-astLine = spanned $ (try opParser <|> try labelLine)
+astLine = spanned $ (try opParser <|> try labelLine <|> try stringConstant)
 
 src :: Parser (AstTU SourceSpan)
 src = spanned $ do

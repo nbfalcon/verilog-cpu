@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Main where
 
 import ErrorCollectorM
@@ -21,10 +23,13 @@ mapLeft :: (l -> l') -> Either l r -> Either l' r
 mapLeft mapper (Left lv) = Left $ mapper lv
 mapLeft mapper (Right rv) = Right rv
 
+instance ShowErrorComponent String where
+    showErrorComponent = id
+
 -- runAssembler :: Assembler p -> FilePath -> FilePath -> IO ()
 runAssembler asm inputF outputF = runExceptT $ do
     source <- liftIO $ TIO.readFile inputF
-    parsed <- liftEither $ mapLeft show $ parse src inputF source
+    parsed <- liftEither $ mapLeft errorBundlePretty $ parse src inputF source
     liftIO $ putStr $ show parsed
     
     let (errors, assembled) = runErrorCollector $ assemble asm parsed

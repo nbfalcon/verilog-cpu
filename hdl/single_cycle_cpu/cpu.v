@@ -10,6 +10,7 @@
 `define OP_BEQ 7
 `define OP_BNEQ 8
 `define OP_DEBUG_DUMPSTATE 9
+`define OP_LW 10
 
 `define JMP_ALWAYS 0
 `define JMP_LT 1
@@ -48,7 +49,6 @@ module decoder(input [31:0]     iReg,
 
    always @ (*) begin
       case (opcode)
-        `OP_NOP: aluCmd <= 0;
         `OP_COMPUTE: case (rFunct)
                        0: aluCmd <= `ALU_ADDU;
                        1: aluCmd <= `ALU_SUBU;
@@ -56,11 +56,10 @@ module decoder(input [31:0]     iReg,
                      endcase // case (rFunct)
         `OP_ADDI: aluCmd <= `ALU_ADDU;
         `OP_SUBI: aluCmd <= `ALU_SUBU;
-        `OP_JMP: aluCmd <= 0;
-        `OP_HLT: aluCmd <= 0;
         `OP_BLT: aluCmd <= `ALU_SUBU;
         `OP_BEQ: aluCmd <= `ALU_SUBU;
         `OP_BNEQ: aluCmd <= `ALU_SUBU;
+        default: aluCmd <= 'bx;
       endcase // case (opcode)
 
       case (opcode)
@@ -68,7 +67,7 @@ module decoder(input [31:0]     iReg,
         `OP_BLT: jmpMode <= `JMP_LT;
         `OP_BEQ: jmpMode <= `JMP_EQ;
         `OP_BNEQ: jmpMode <= `JMP_NEQ;
-        default: jmpMode <= 3'bxxx;
+        default: jmpMode <= 'bx;
       endcase
    end // always @ (*)
 
@@ -95,6 +94,7 @@ module scpu_rom(input [31:0]  pc,
    initial $readmemh("output.hex", memory);
 
    assign iReg = memory[pc >> 2];
+   assign lw = memory[lw >> 2];
 endmodule // scpu_rom
 
 module scpu(input clk, input reset, output haltTriggered, output debugDump);

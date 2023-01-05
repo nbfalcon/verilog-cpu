@@ -25,6 +25,7 @@ data AstArgList p =
 data AstLine p =
     Label { labelName :: String, position :: p }
     | Op { opName :: (AstId p), opArgs :: AstArgList p, position :: p }
+    | AstStringConstant { theString :: String, position :: p }
 data AstTU p =
     AstTU { lines :: [AstLine p], position :: p }
 
@@ -41,6 +42,7 @@ instance WithPosition AstArg where
 instance WithPosition AstLine where
     getPosition Label { position } = position
     getPosition Op { position } = position
+    getPosition AstStringConstant { position } = position
 instance WithPosition AstTU where
     getPosition AstTU { position } = position
 
@@ -56,6 +58,7 @@ instance Show (AstLine p) where
     show Label { labelName } = labelName ++ ":"
     show Op { opName=AstId { idName }, opArgs=AstArgList { argList=[] } } = idName
     show Op { opName=AstId { idName }, opArgs=args } = idName ++ " " ++ show args
+    show AstStringConstant { theString } = ".ascii " ++ show theString
 instance Show (AstTU p) where
     show AstTU { lines } = concat $ map ((++ "\n") . show) lines
 
@@ -80,6 +83,9 @@ data AsmArgList p =
     AsmArgList { argList :: [AsmArg p], position :: p }
 data AsmLine p =
     AsmOp { instruction :: AsmId p, args :: AsmArgList p, position :: p }
+    | AsmStringConstant { theString :: String, position :: p }
+
+stringConstantLength theString = ((length theString + 3) `div` 4) * 4
 
 instance WithPosition AsmArg where
     getPosition AsmNumber { position } = position
@@ -189,6 +195,7 @@ labelPass asm AstTU { lines } = snd <$> foldM doLabel1 (0, M.empty) lines
                     return (adr, label2Adr) 
                 Nothing -> return (adr, M.insert labelName LabelXref { address=adr, position=labPos } label2Adr)
           doLabel1 (adr, label2Adr) Op { opName, opArgs } = return (adr + 4, label2Adr) -- FIXME: don't hardcode 4
+          doLabel1 (adr, label2Adr) c@AstStringConstant { theString } = return (adr + stringConstantLength theString, label2Adr)
 
 reduce2AsmPass :: forall p . Assembler p -> Labels p -> AstTU p -> AsmMonad p [AsmLine p]
 reduce2AsmPass asm labels AstTU { lines } = mapMaybe id <$> mapM mapLine lines
@@ -198,7 +205,7 @@ reduce2AsmPass asm labels AstTU { lines } = mapMaybe id <$> mapM mapLine lines
           mapLine Op { opName=AstId { idName=opName, position=idPos }, opArgs=AstArgList { argList=opArgs, position=opPos }, position } = do
             args <- mapM mapOp opArgs
             return $ Just AsmOp { instruction=AsmId { idName=opName, position=idPos }, args=AsmArgList { argList=args, position=opPos }, position }
-            
+          mapLine AstStringConstant { theString, position } = return $ Just $ AsmStringConstant { theString, position }
           mapOp :: AstArg p -> AsmMonad p (AsmArg p)
           mapOp Number { value, position } = return AsmNumber { value, position }
           mapOp Register { registerName, position=rp } = case getRegister asm registerName of
@@ -218,6 +225,10 @@ assemble1 Assembler { opcodes } op@AsmOp { instruction=AsmId { idName }, positio
     Nothing -> do
         createError position "Unknown operation '%s'" (`printf` idName)
         return mempty
+assemble1 asm AsmStringConstant { theString } = return $ B.stringUtf8 theString <> padB
+    where paddingNeeded = (length theString) `mod` 4
+          padding = if paddingNeeded /= 0 then 4 - padding else 0
+          padB = mconcat $ take padding $ repeat $ B.char7 '\0'
 
 assemblePass :: Assembler p -> [AsmLine p] -> AsmMonad p B.Builder
 assemblePass asm lines = mconcat <$> mapM (assemble1 asm) lines

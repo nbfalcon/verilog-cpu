@@ -18,4 +18,7 @@ blt r1, r2, :loop
 
 debugDumpState
 
+hello_world:
+.asciz "Hello, World <3"
+
 hlt
