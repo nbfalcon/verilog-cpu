@@ -32,7 +32,7 @@ module cpu_tb();
    end
 
    always @ (posedge dumpState) begin
-      $display("%d: r1=%d, r2=%d, r3=%d", $time,
-               dut.regs_u.m_registers[1], dut.regs_u.m_registers[2], dut.regs_u.m_registers[3]);
+      $display("%d: r1=%d, r2=%x, r3=%x, char '%c'", $time,
+               dut.regs_u.m_registers[1], dut.regs_u.m_registers[2], dut.regs_u.m_registers[3], dut.regs_u.m_registers[2]);
    end
 endmodule // cpu_tb

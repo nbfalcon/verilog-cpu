@@ -32,11 +32,13 @@ module register_file(input         clk, input reset,
 endmodule // register_file
 
 module pcu_unit(input         clk, input reset,
+                input         skipCycle,
                 input [31:0]  pcIn, input jmpFlag,
                 output [31:0] pcOut);
    reg [31:0] curPc;
    always @ (posedge clk) begin
       if (reset) curPc <= 0;
+      else if (skipCycle) curPc <= curPc;
       else if (jmpFlag) curPc <= pcIn;
       else curPc <= curPc + 4;
    end

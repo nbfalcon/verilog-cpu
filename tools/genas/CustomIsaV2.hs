@@ -17,11 +17,19 @@ iTypeCode opcode (rd, rs1, imm16) = B.word32BE w
 jaTypeCode :: Word32 -> Word32 -> B.Builder
 jaTypeCode opcode jmpTo = iTypeCode opcode (0, 0, jmpTo)
 
+lwTypeCode :: Word32 -> Word32 -> (Word32, Word32) -> B.Builder
+lwTypeCode opcode mode (rd, rs) = iTypeCode opcode (rd, rs, mode)
+
 noArgsCode :: Word32 -> () -> B.Builder
 noArgsCode opcode nothing = B.word32BE opcode
 
 r3 :: AstPosition p => ArgsExtractor p (Word32, Word32, Word32)
 r3 = m3to2 $ exRegister `seqTuple` (exRegister `seqTuple` (once exRegister))
+
+m2 (a, b) = (fromIntegral a, fromIntegral b)
+
+r2 :: AstPosition p => ArgsExtractor p (Word32, Word32)
+r2 = (m2 `mapExtractor`) $ exRegister `seqTuple` (once exRegister)
 
 r2imm :: AstPosition p => ArgsExtractor p (Word32, Word32, Word32)
 r2imm = m3to2 $ exRegister `seqTuple` (exRegister `seqTuple` (once exNum))
@@ -48,6 +56,9 @@ ops = createOpcodes [ defineOp ["nop"] noargs (return . noArgsCode 0)
                     , defineOp ["beq"] r2label (return . iTypeCode 7)
                     , defineOp ["bneq"] r2label (return . iTypeCode 8)
                     , defineOp ["debugDumpState"] noargs (return . noArgsCode 9)
+                    , defineOp ["lw"] r2 (return . lwTypeCode 10 0)
+                    , defineOp ["lh"] r2 (return . lwTypeCode 10 1)
+                    , defineOp ["lb"] r2 (return . lwTypeCode 10 2)
                     ]
 
 asm :: AstPosition p => Assembler p

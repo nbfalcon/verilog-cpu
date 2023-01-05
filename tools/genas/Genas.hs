@@ -114,6 +114,7 @@ exArg1Err expected other = 0 <$ createError (getPosition other) ("Expected a " +
 
 exNum :: ArgExtractor p Integer
 exNum AsmNumber { value } = return value
+exNum AsmLabel { address } = return $ fromIntegral address -- FIXME: Hack
 exNum other = exArg1Err "number" other
 
 exRegister AsmRegister { code } = return code
@@ -219,14 +220,22 @@ reduce2AsmPass asm labels AstTU { lines } = mapMaybe id <$> mapM mapLine lines
                 createError lp "Undefined label '%s'" (`printf` labelRef)
                 return AsmLabel { address=0, position=lp }
 
+chunkList :: Int -> [a] -> [[a]]
+chunkList n = chunk1 n
+  where chunk1 thisChunk [] = []
+        chunk1 0 rest = []:(chunk1 n rest)
+        chunk1 thisChunk [single] = [[single]]
+        chunk1 thisChunk (fst:rest) = let (curChunk:restChunks) = chunk1 (thisChunk - 1) rest in (fst:curChunk):restChunks
+
 assemble1 :: Assembler p -> AsmLine p -> AsmMonad p B.Builder
 assemble1 Assembler { opcodes } op@AsmOp { instruction=AsmId { idName }, position } = case M.lookup idName opcodes of
     Just Opcode { encode } -> encode op
     Nothing -> do
         createError position "Unknown operation '%s'" (`printf` idName)
         return mempty
-assemble1 asm AsmStringConstant { theString } = return $ B.stringUtf8 theString <> padB
-    where paddingNeeded = (length theString) `mod` 4
+assemble1 asm AsmStringConstant { theString } = return $ B.stringUtf8 theString' <> padB
+    where theString' = concat $ map reverse $ chunkList 4 theString
+          paddingNeeded = (length theString') `mod` 4
           padding = if paddingNeeded /= 0 then 4 - padding else 0
           padB = mconcat $ take padding $ repeat $ B.char7 '\0'
 
