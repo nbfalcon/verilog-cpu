@@ -5,13 +5,19 @@
 `define OP_JMP 2
 `define OP_ADDI 3
 `define OP_SUBI 4
+`define OP_HLT 5
+`define OP_BLT 6
+`define OP_BEQ 7
+`define OP_BNEQ 8
+`define OP_DEBUG_DUMPSTATE 9
 
-module decoder(input [31:0]      iReg,
-               output reg [3:0]  aluCmd,
-               output reg [15:0] imm, output reg aluBMuxUseImm,
-               output reg [4:0]  selA, output reg [4:0] selB,
-               output reg [4:0]  selW, output reg wWE,
-               output reg [31:0] pcImm, output reg jmpFlag);
+module decoder(input [31:0]     iReg,
+               output reg [3:0] aluCmd,
+               output [15:0]    imm, output aluBMuxUseImm,
+               output [4:0]     selA, output [4:0] selB,
+               output [4:0]     selW, output wWE,
+               output [31:0]    pcImm, output jmpFlag,
+               output           haltTriggered);
    wire [5:0]  opcode; // With a 5-bit opcode, we get 16-bit immediates
    wire [4:0]  rd, rs1, rs2;
    wire [10:0] rFunct;
@@ -32,19 +38,18 @@ module decoder(input [31:0]      iReg,
        `OP_ADDI: aluCmd <= `ALU_ADDU;
        `OP_SUBI: aluCmd <= `ALU_SUBU;
        `OP_JMP: aluCmd <= 0;
+       `OP_HLT: aluCmd <= 0;
      endcase
 
-   always @ (*) begin
-      selA <= rs1;
-      selB <= rs2;
-      selW <= rd;
-
-      wWE <= opcode == `OP_COMPUTE;
-      aluBMuxUseImm <= opcode == `OP_ADDI || opcode == `OP_SUBI;
-
-      pcImm <= iImm;
-      jmpFlag <= opcode == `OP_JMP;
-   end
+    assign selA = rs1;
+    assign selB = rs2;
+    assign selW = rd;
+    assign wWE = opcode == `OP_COMPUTE || opcode == `OP_ADDI || opcode == `OP_SUBI;
+    assign aluBMuxUseImm = opcode == `OP_ADDI || opcode == `OP_SUBI;
+    assign imm = iImm;
+    assign pcImm = {16'b0, iImm};
+    assign jmpFlag = opcode == `OP_JMP;
+    assign haltTriggered = opcode == `OP_HLT;
 endmodule // decoder
 
 module scpu_rom(input [31:0]  pc,
@@ -52,10 +57,10 @@ module scpu_rom(input [31:0]  pc,
    reg [31:0] memory[0:32767];
    initial $readmemh("output.hex", memory);
 
-   assign iReg = memory[pc >> 4];
+   assign iReg = memory[pc >> 2];
 endmodule // scpu_rom
 
-module scpu(input clk, input reset);
+module scpu(input clk, input reset, output haltTriggered);
    wire [31:0] pcImm, curPc;
    wire        jmpFlag;
    pcu_unit pc_u(clk, reset, pcImm, jmpFlag, curPc);
@@ -73,7 +78,7 @@ module scpu(input clk, input reset);
    wire [3:0]  aluCmd;
    wire [15:0] imm;
    wire        aluBMuxUseImm;
-   decoder decoder_u(iReg, aluCmd, imm, aluBMuxUseImm, selA, selB, selW, wWE, pcImm, jmpFlag);
+   decoder decoder_u(iReg, aluCmd, imm, aluBMuxUseImm, selA, selB, selW, wWE, pcImm, jmpFlag, haltTriggered);
 
    alu alu_u(outA, aluBMuxUseImm ? imm : outB, inW, aluCmd);
 endmodule

@@ -19,6 +19,7 @@ iTypeCode opcode (rD, rS1, imm15) = word32BE w
 jaTypeCode :: Word32 -> (Word32) -> B.Builder
 jaTypeCode opcode (dest) = word32BE $ opcode .|. (dest `shiftL` 7)
 
+label1 :: ArgsExtractor p Word32
 label1 = fromIntegral `mapExtractor` once exLabelRef
 
 r3 :: AstPosition p => ArgsExtractor p (Word32, Word32, Word32)
@@ -32,7 +33,7 @@ parseRegister ('r':n) = readMaybe n
 parseRegister other = Nothing
 
 ops :: AstPosition p => OpcodesTable p
-ops = createOpcodes [ defineOp ["nop"] noargs (\v -> return $ word32LE 0)
+ops = createOpcodes [ defineOp ["nop"] noargs (\v -> return $ word32BE 0)
                     , defineOp ["add"] r3 (return . rTypeCode 1 0)
                     , defineOp ["sub"] r3 (return . rTypeCode 1 1)
                     , defineOp ["addi"] r2imm (return . iTypeCode 2)

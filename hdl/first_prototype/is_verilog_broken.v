@@ -1,6 +1,6 @@
 module pc_unit(input             clk, input reset,
                output reg [31:0] pc);
-  always @(posedge clk or posedge reset)
+  always @(posedge clk)
     if (reset) pc <= 0;
     else pc <= pc + 4;
 endmodule // pc_unit

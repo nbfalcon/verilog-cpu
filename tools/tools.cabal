@@ -31,6 +31,7 @@ executable genas
         Genas
         ErrorCollectorM
         CustomIsaAs
+        CustomIsaV2
         Encode
 
     -- LANGUAGE extensions used by modules in this package.

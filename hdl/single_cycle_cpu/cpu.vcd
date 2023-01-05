@@ -1,0 +1,315 @@
+$date
+	Thu Jan  5 18:47:10 2023
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1s
+$end
+$scope module cpu_tb $end
+$var wire 1 ! haltWire $end
+$var reg 1 " clk $end
+$var reg 1 # reset $end
+$scope module dut $end
+$var wire 1 " clk $end
+$var wire 1 # reset $end
+$var wire 1 $ wWE $end
+$var wire 5 % selW [4:0] $end
+$var wire 5 & selB [4:0] $end
+$var wire 5 ' selA [4:0] $end
+$var wire 32 ( pcImm [31:0] $end
+$var wire 32 ) outB [31:0] $end
+$var wire 32 * outA [31:0] $end
+$var wire 1 + jmpFlag $end
+$var wire 32 , inW [31:0] $end
+$var wire 16 - imm [15:0] $end
+$var wire 32 . iReg [31:0] $end
+$var wire 1 ! haltTriggered $end
+$var wire 32 / curPc [31:0] $end
+$var wire 4 0 aluCmd [3:0] $end
+$var wire 1 1 aluBMuxUseImm $end
+$scope module alu_u $end
+$var wire 32 2 b [31:0] $end
+$var wire 4 3 funct [3:0] $end
+$var wire 32 4 a [31:0] $end
+$var reg 32 5 outlo [31:0] $end
+$upscope $end
+$scope module decoder_u $end
+$var wire 1 1 aluBMuxUseImm $end
+$var wire 16 6 imm [15:0] $end
+$var wire 5 7 selA [4:0] $end
+$var wire 5 8 selB [4:0] $end
+$var wire 5 9 selW [4:0] $end
+$var wire 1 $ wWE $end
+$var wire 5 : rs2 [4:0] $end
+$var wire 5 ; rs1 [4:0] $end
+$var wire 5 < rd [4:0] $end
+$var wire 11 = rFunct [10:0] $end
+$var wire 32 > pcImm [31:0] $end
+$var wire 6 ? opcode [5:0] $end
+$var wire 1 + jmpFlag $end
+$var wire 32 @ iReg [31:0] $end
+$var wire 16 A iImm [15:0] $end
+$var wire 1 ! haltTriggered $end
+$var reg 4 B aluCmd [3:0] $end
+$upscope $end
+$scope module pc_u $end
+$var wire 1 " clk $end
+$var wire 1 + jmpFlag $end
+$var wire 32 C pcIn [31:0] $end
+$var wire 32 D pcOut [31:0] $end
+$var wire 1 # reset $end
+$var reg 32 E curPc [31:0] $end
+$upscope $end
+$scope module regs_u $end
+$var wire 1 " clk $end
+$var wire 32 F inW [31:0] $end
+$var wire 1 # reset $end
+$var wire 5 G selA [4:0] $end
+$var wire 5 H selB [4:0] $end
+$var wire 5 I selW [4:0] $end
+$var wire 1 $ wWE $end
+$var wire 32 J outB [31:0] $end
+$var wire 32 K outA [31:0] $end
+$var integer 32 L i [31:0] $end
+$upscope $end
+$scope module rom_u $end
+$var wire 32 M iReg [31:0] $end
+$var wire 32 N pc [31:0] $end
+$upscope $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+bx N
+bx M
+bx L
+bx K
+bx J
+bx I
+bx H
+bx G
+bx F
+bx E
+bx D
+b0xxxxxxxxxxxxxxxx C
+bx B
+bx A
+bx @
+bx ?
+b0xxxxxxxxxxxxxxxx >
+bx =
+bx <
+bx ;
+bx :
+bx 9
+bx 8
+bx 7
+bx 6
+bx 5
+bx 4
+bx 3
+bx 2
+x1
+bx 0
+bx /
+bx .
+bx -
+bx ,
+x+
+bx *
+bx )
+b0xxxxxxxxxxxxxxxx (
+bx '
+bx &
+bx %
+x$
+1#
+0"
+x!
+$end
+#1
+b1010 ,
+b1010 5
+b1010 F
+b1 0
+b1 3
+b1 B
+1$
+b1010 2
+b0 )
+b0 J
+b0 *
+b0 4
+b0 K
+11
+b1010 (
+b1010 >
+b1010 C
+b1010 -
+b1010 6
+b1010 A
+b0 =
+b1010 &
+b1010 8
+b1010 H
+b1010 :
+b0 '
+b0 7
+b0 G
+b0 ;
+b1 %
+b1 9
+b1 I
+b1 <
+0+
+0!
+b11 ?
+b10100000000001000011 .
+b10100000000001000011 @
+b10100000000001000011 M
+b0 /
+b0 D
+b0 E
+b0 N
+b100000 L
+1"
+#2
+0"
+0#
+#3
+b10100 ,
+b10100 5
+b10100 F
+b10100 2
+b10100 (
+b10100 >
+b10100 C
+b10100 -
+b10100 6
+b10100 A
+b10100 &
+b10100 8
+b10100 H
+b10100 :
+b10 %
+b10 9
+b10 I
+b10 <
+b101000000000010000011 .
+b101000000000010000011 @
+b101000000000010000011 M
+b100 /
+b100 D
+b100 E
+b100 N
+1"
+#4
+0"
+#5
+b11110 ,
+b11110 5
+b11110 F
+b10100 )
+b10100 J
+b1010 *
+b1010 4
+b1010 K
+01
+b10 (
+b10 >
+b10 C
+b10 -
+b10 6
+b10 A
+b10 &
+b10 8
+b10 H
+b10 :
+b1 '
+b1 7
+b1 G
+b1 ;
+b11 %
+b11 9
+b11 I
+b11 <
+b1 ?
+b100000100011000001 .
+b100000100011000001 @
+b100000100011000001 M
+b1000 /
+b1000 D
+b1000 E
+b1000 N
+1"
+#6
+0"
+#7
+b0 ,
+b0 5
+b0 F
+b0 0
+b0 3
+b0 B
+b0 2
+0$
+b0 )
+b0 J
+b0 *
+b0 4
+b0 K
+b10100 (
+b10100 >
+b10100 C
+b10100 -
+b10100 6
+b10100 A
+b10100 &
+b10100 8
+b10100 H
+b10100 :
+b0 '
+b0 7
+b0 G
+b0 ;
+b0 %
+b0 9
+b0 I
+b0 <
+1+
+b10 ?
+b101000000000000000010 .
+b101000000000000000010 @
+b101000000000000000010 M
+b1100 /
+b1100 D
+b1100 E
+b1100 N
+1"
+#8
+0"
+#9
+b0 (
+b0 >
+b0 C
+b0 -
+b0 6
+b0 A
+b0 &
+b0 8
+b0 H
+b0 :
+0+
+1!
+b101 ?
+b101 .
+b101 @
+b101 M
+b10100 /
+b10100 D
+b10100 E
+b10100 N
+1"
