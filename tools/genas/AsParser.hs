@@ -15,7 +15,7 @@ data SourceSpan = SourceSpan { startLoc :: SourcePos, endLoc :: SourcePos }
 instance Show (SourceSpan) where
     show SourceSpan { startLoc, endLoc } = (sourceName startLoc) ++ ":"
         ++ (show $ unPos $ sourceLine startLoc) ++ ":" ++ (show $ unPos $ sourceColumn startLoc)
-        ++ "-" ++ (show $ unPos $ sourceLine endLoc) ++ ":" ++ (show $ unPos $ sourceColumn endLoc)
+        -- ++ "-" ++ (show $ unPos $ sourceLine endLoc) ++ ":" ++ (show $ unPos $ sourceColumn endLoc)
 
 type AST = AstLine SourceSpan
 
@@ -63,7 +63,7 @@ arg = spanned p1
 
 opParser = do
     name <- spanned $ AstId <$> lexeme1 ident
-    args <- (lexeme1 arg) `sepBy` (lexeme2 $ char ',')
+    args <- spanned $ AstArgList <$> (lexeme1 arg) `sepBy` (lexeme2 $ char ',')
     scNl
     return $ Op (name) args
 

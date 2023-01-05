@@ -3,6 +3,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Genas where
 
 import Data.List
@@ -13,18 +14,24 @@ import qualified Data.ByteString.Builder as B
 import Data.Maybe
 import ErrorCollectorM
 
-data AstId p = AstId { name :: String, position :: p }
+data AstId p =
+    AstId { idName :: String, position :: p }
 data AstArg p =
     Number { value :: Integer, position :: p }
     | Register { registerName :: String, position :: p }
     | LabelRef { labelRef :: String, position :: p }
+data AstArgList p =
+    AstArgList { argList :: [AstArg p], position :: p }
 data AstLine p =
     Label { labelName :: String, position :: p }
-    | Op { opName :: (AstId p), opArgs :: [AstArg p], position :: p }
-data AstTU p = AstTU { lines :: [AstLine p], position :: p }
+    | Op { opName :: (AstId p), opArgs :: AstArgList p, position :: p }
+data AstTU p =
+    AstTU { lines :: [AstLine p], position :: p }
 
 class WithPosition n where
     getPosition :: n p -> p
+instance WithPosition AstArgList where
+    getPosition AstArgList { position } = position
 instance WithPosition AstId where
     getPosition AstId { position } = position
 instance WithPosition AstArg where
@@ -38,15 +45,17 @@ instance WithPosition AstTU where
     getPosition AstTU { position } = position
 
 instance Show (AstId p) where
-    show AstId { name } = name
+    show AstId { idName } = idName
 instance Show (AstArg p) where
     show Number { value } = "$" ++ show value
     show Register { registerName } = registerName
     show LabelRef { labelRef } = ":" ++ labelRef
+instance Show (AstArgList p) where
+    show AstArgList { argList } = intercalate ", " (map show argList)
 instance Show (AstLine p) where
     show Label { labelName } = labelName ++ ":"
-    show Op { opName=AstId { name }, opArgs=[] } = name
-    show Op { opName=AstId { name }, opArgs=args } = name ++ " " ++ intercalate ", " (map show args)
+    show Op { opName=AstId { idName }, opArgs=AstArgList { argList=[] } } = idName
+    show Op { opName=AstId { idName }, opArgs=args } = idName ++ " " ++ show args
 instance Show (AstTU p) where
     show AstTU { lines } = concat $ map ((++ "\n") . show) lines
 
@@ -64,20 +73,26 @@ data AsmArg p =
     AsmNumber { value :: Integer, position :: p }
     | AsmRegister { code :: Int, position :: p }
     | AsmLabel { address :: Int, position :: p }
-    | NothingArg
-data AsmLine p = AsmOp { name :: String, args :: [AsmArg p], position :: p }
+    | NothingArg { position :: p }
+data AsmId p =
+    AsmId { idName :: String, position :: p }
+data AsmArgList p =
+    AsmArgList { argList :: [AsmArg p], position :: p }
+data AsmLine p =
+    AsmOp { instruction :: AsmId p, args :: AsmArgList p, position :: p }
 
 instance WithPosition AsmArg where
     getPosition AsmNumber { position } = position
     getPosition AsmRegister { position } = position
     getPosition AsmLabel { position } = position
+    getPosition NothingArg { position } = position
 
 type AsmMonad p r = ErrorCollectorM (AsmError p) r
 
 type ArgExtractor p a = AsmArg p -> AsmMonad p a
-type ArgsExtractor p a = [AsmArg p] -> AsmMonad p a
+type ArgsExtractor p a = AsmLine p -> AsmMonad p a
 type AsmFunc p a = a -> AsmMonad p B.Builder
-type AsmOpFunc p = AsmFunc p [AsmArg p]
+type AsmOpFunc p = AsmFunc p (AsmLine p)
 
 exNum :: ArgExtractor p Integer
 exNum AsmNumber { value } = return value
@@ -90,20 +105,30 @@ exLabelRef AsmLabel { address } = return address
 exLabelRef other = 0 <$ createError (getPosition other) "Expected a label" id
 
 once :: ArgExtractor p a -> ArgsExtractor p a
-once ex [e] = ex e
-once ex [] = ex NothingArg -- FIXME error here
-once ex (e:sndA:es) = do createError (getPosition sndA) "Excess arguments" id; ex e
+once ex AsmOp { args=AsmArgList { argList = [e] } } = ex e
+once ex AsmOp { args=AsmArgList { argList = [], position } } = do
+    createError position "Argument expected here" id
+    ex NothingArg { position }
+once ex AsmOp { args=AsmArgList { argList = (e:sndA:rest) } } = do
+    createError (getPosition sndA) "Excess arguments" id
+    ex e
 
 noargs :: ArgsExtractor p ()
-noargs [] = return ()
-noargs (e:rest) = createError (getPosition e) "No arguments expected" id
+noargs AsmOp { args=AsmArgList { argList=[] } } = return ()
+noargs AsmOp { args=AsmArgList { argList=(e:rest) } } = do
+    -- FIXME: merge positions of the entire argList
+    createError (getPosition e) "No arguments expected" id
+    return ()
 
 seqTuple :: ArgExtractor p a -> ArgsExtractor p b -> ArgsExtractor p (a, b)
--- FIXME: error here
--- seqTuple hd tl [] = do createError (getPosition sndA) "Excess arguments" id; hd NothingArg
-seqTuple hd tl (fst:xs) = do
+seqTuple hd tl op@AsmOp { args=args1@AsmArgList { argList=[], position } } = do
+    createError position "Argument expected here" id
+    first <- hd NothingArg { position }
+    snd <- tl $ op { args=args1 { argList=[] } }
+    return (first, snd)
+seqTuple hd tl op@AsmOp { args=args1@AsmArgList { argList = (fst:xs) } } = do
     first <- hd fst
-    rest <- tl xs
+    rest <- tl $ op { args=args1 { argList=xs } }
     return $ (first, rest)
 
 mapExtractor :: (a -> b) -> ArgsExtractor p a -> ArgsExtractor p b
@@ -140,16 +165,16 @@ labelPass asm AstTU { lines } = snd <$> foldM doLabel1 (0, M.empty) lines
                 Nothing -> return (adr, M.insert labelName LabelXref { address=adr, position=labPos } label2Adr)
           doLabel1 (adr, label2Adr) Op { opName, opArgs } = return (adr + 4, label2Adr) -- FIXME: don't hardcode 4
 
-reduce2AsmPass :: Assembler p -> Labels p -> AstTU p -> AsmMonad p [AsmLine p]
+reduce2AsmPass :: forall p . Assembler p -> Labels p -> AstTU p -> AsmMonad p [AsmLine p]
 reduce2AsmPass asm labels AstTU { lines } = mapMaybe id <$> mapM mapLine lines
     where -- We can't use real type declarations here, because we can't reuse the outer 'p' internally
-        -- mapLine :: AstLine p -> AsmMonad p (Maybe (AsmLine p))
+          mapLine :: AstLine p -> AsmMonad p (Maybe (AsmLine p))
           mapLine Label { labelName, position=labPos } = return Nothing
-          mapLine Op { opName=AstId { name=opName }, opArgs, position } = do
+          mapLine Op { opName=AstId { idName=opName, position=idPos }, opArgs=AstArgList { argList=opArgs, position=opPos }, position } = do
             args <- mapM mapOp opArgs
-            return $ Just AsmOp { name=opName, args, position }
+            return $ Just AsmOp { instruction=AsmId { idName=opName, position=idPos }, args=AsmArgList { argList=args, position=opPos }, position }
             
-        --   mapOp :: AstArg p -> AsmMonad p (AsmArg p)
+          mapOp :: AstArg p -> AsmMonad p (AsmArg p)
           mapOp Number { value, position } = return AsmNumber { value, position }
           mapOp Register { registerName, position=rp } = case getRegister asm registerName of
             Just r -> return AsmRegister { code=r, position=rp }
@@ -163,10 +188,10 @@ reduce2AsmPass asm labels AstTU { lines } = mapMaybe id <$> mapM mapLine lines
                 return AsmLabel { address=0, position=lp }
 
 assemble1 :: Assembler p -> AsmLine p -> AsmMonad p B.Builder
-assemble1 Assembler { opcodes } AsmOp { name, args, position } = case M.lookup name opcodes of
-    Just Opcode { encode } -> encode args
+assemble1 Assembler { opcodes } op@AsmOp { instruction=AsmId { idName }, position } = case M.lookup idName opcodes of
+    Just Opcode { encode } -> encode op
     Nothing -> do
-        createError position "Unknown operation '%s'" (`printf` name)
+        createError position "Unknown operation '%s'" (`printf` idName)
         return mempty
 
 assemblePass :: Assembler p -> [AsmLine p] -> AsmMonad p B.Builder
