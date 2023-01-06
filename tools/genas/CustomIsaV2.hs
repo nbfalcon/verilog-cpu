@@ -17,8 +17,9 @@ iTypeCode opcode (rd, rs1, imm16) = B.word32BE w
 jaTypeCode :: Word32 -> Word32 -> B.Builder
 jaTypeCode opcode jmpTo = iTypeCode opcode (0, 0, jmpTo)
 
-lwTypeCode :: Word32 -> Word32 -> (Word32, Word32) -> B.Builder
-lwTypeCode opcode mode (rd, rs) = iTypeCode opcode (rd, rs, mode)
+lwTypeCode :: Word32 -> Word32 -> Word32 -> (Word32, Word32) -> B.Builder
+lwTypeCode opcode storebit mode (rd, rs) = iTypeCode opcode (rd, rs, iImm16)
+    where iImm16 = (storebit `shiftL` 15) .|. mode
 
 noArgsCode :: Word32 -> () -> B.Builder
 noArgsCode opcode nothing = B.word32BE opcode
@@ -56,9 +57,12 @@ ops = createOpcodes [ defineOp ["nop"] noargs (return . noArgsCode 0)
                     , defineOp ["beq"] r2label (return . iTypeCode 7)
                     , defineOp ["bneq"] r2label (return . iTypeCode 8)
                     , defineOp ["debugDumpState"] noargs (return . noArgsCode 9)
-                    , defineOp ["lw"] r2 (return . lwTypeCode 10 0)
-                    , defineOp ["lh"] r2 (return . lwTypeCode 10 1)
-                    , defineOp ["lb"] r2 (return . lwTypeCode 10 2)
+                    , defineOp ["lw"] r2 (return . lwTypeCode 10 0 0)
+                    , defineOp ["lh"] r2 (return . lwTypeCode 10 0 1)
+                    , defineOp ["lb"] r2 (return . lwTypeCode 10 0 2)
+                    , defineOp ["sw"] r2 (return . lwTypeCode 10 1 0)
+                    , defineOp ["sh"] r2 (return . lwTypeCode 10 1 1)
+                    , defineOp ["sb"] r2 (return . lwTypeCode 10 1 2)
                     ]
 
 asm :: AstPosition p => Assembler p

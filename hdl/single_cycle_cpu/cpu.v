@@ -10,7 +10,7 @@
 `define OP_BEQ 7
 `define OP_BNEQ 8
 `define OP_DEBUG_DUMPSTATE 9
-`define OP_LW 10
+`define OP_LW_SW 10
 
 `define JMP_ALWAYS 0
 `define JMP_LT 1
@@ -37,16 +37,20 @@ module decoder(input [31:0]     iReg,
                output [4:0]     selA, output [4:0] selB,
                output [4:0]     selW, output wWE,
                output [31:0]    pcImm, output reg [2:0] jmpMode, output jmpFlag,
-               output           lwAEn,
+               // For lw/sw, rd is the destination (either register to lw into, or the register with address to store to); rs1 is the source,
+               // memMode is how to write/load; lw/sw share an encoding
+               output           lwAEn, output wrAEn, output [1:0] memMode,
                output           haltTriggered, output debugDump);
    wire [5:0]  opcode; // With a 5-bit opcode, we get 16-bit immediates
    wire [4:0]  rd, rs1, rs2;
    wire [10:0] rFunct;
 
-   wire [15:0] iImm;
-
    assign {rFunct, rs2, rs1, rd, opcode} = iReg;
-   assign iImm = iReg[31:16];
+
+   wire [15:0] iImm = iReg[31:16];
+
+   wire lswWrMode = iImm[15];
+   wire [1:0] lswMemMode = iImm[1:0];
 
    always @ (*) begin
       case (opcode)
@@ -54,6 +58,7 @@ module decoder(input [31:0]     iReg,
                        0: aluCmd <= `ALU_ADDU;
                        1: aluCmd <= `ALU_SUBU;
                        2: aluCmd <= `ALU_BAND;
+                       default: aluCmd <= 'bx; // FIXME: SIGILL here
                      endcase // case (rFunct)
         `OP_ADDI: aluCmd <= `ALU_ADDU;
         `OP_SUBI: aluCmd <= `ALU_SUBU;
@@ -73,7 +78,6 @@ module decoder(input [31:0]     iReg,
    end // always @ (*)
 
    wire isCJmp = opcode == `OP_BLT || opcode == `OP_BEQ || opcode == `OP_BNEQ;
-
    assign pcImm = {16'b0, iImm};
    assign jmpFlag = opcode == `OP_JMP || isCJmp;
 
@@ -85,67 +89,13 @@ module decoder(input [31:0]     iReg,
    assign aluBMuxUseImm = opcode == `OP_ADDI || opcode == `OP_SUBI;
    assign imm = iImm;
 
-   assign lwAEn = opcode == `OP_LW;
+   assign memMode = lswMemMode;
+   assign lwAEn = opcode == `OP_LW_SW && !lswWrMode;
+   assign wrAEn = opcode == `OP_LW_SW && lswWrMode;
 
    assign haltTriggered = opcode == `OP_HLT;
    assign debugDump = opcode == `OP_DEBUG_DUMPSTATE;
 endmodule // decoder
-
-// module scpu_rom(input [31:0]  pc,
-//                 output [31:0] iReg);
-//    reg [31:0] memory[0:32767];
-//    initial $readmemh("output.hex", memory);
-
-//    assign iReg = memory[pc >> 2];
-//    assign lw = memory[lw >> 2];
-// endmodule // scpu_rom
-
-module scpu_ram_unit(input         clk, input reset,
-                     input [31:0]  pc, output [31:0] iReg, output iRegAvail,
-
-                     // Second port; iReg be 0 if using this
-                     input         port2en, input [31:0] port2adr,
-                     output [31:0] port2o, output port2avail);
-   reg usePort2;
-   reg [31:0] port2adrNextCycle;
-
-   always @ (posedge clk) begin
-      if (reset) usePort2 <= 0;
-      else begin
-         usePort2 <= port2en;
-         port2adrNextCycle <= port2adr;
-      end
-   end
-
-   reg [31:0] memory[0:32767];
-   initial $readmemh("output.hex", memory);
-
-   assign iReg = usePort2 ? 0 : memory[pc >> 2];
-   assign port2o = usePort2 ? memory[port2adrNextCycle >> 2] : 0;
-
-   assign port2avail = usePort2;
-   assign iRegAvail = ~usePort2; // Currently we don't have ram that takes more than a cycle
-endmodule // scpu_ram_unit
-
-`define MEM_W 0
-`define MEM_H 1
-`define MEM_B 2
-
-module mem_nibble_ex(input [31:0]      fetchedWord,
-                     input [1:0]       memMode, input [1:0] byteAdr,
-                     output reg [31:0] finalWord);
-   always @ (*)
-     case (memMode)
-       `MEM_W: finalWord <= fetchedWord;
-       `MEM_H: finalWord <= {16'b0, byteAdr[1] ? fetchedWord[31:16] : fetchedWord[15:0]}; // We ignore byte offset
-       `MEM_B: case (byteAdr)
-                 0: finalWord <= {24'b0, fetchedWord[7:0]};
-                 1: finalWord <= {24'b0, fetchedWord[15:8]};
-                 2: finalWord <= {24'b0, fetchedWord[23:16]};
-                 3: finalWord <= {24'b0, fetchedWord[31:24]};
-               endcase
-     endcase
-endmodule
 
 module scpu(input clk, input reset, output haltTriggered, output debugDump);
    wire [31:0]      aluResult;
@@ -157,48 +107,51 @@ module scpu(input clk, input reset, output haltTriggered, output debugDump);
    wire [31:0] pcImm, curPc;
    wire        jmpFlag;
 
-   wire [31:0] iReg, port2o;
-   wire        lwAEn;
-   wire        iRegAvail, port2avail;
+   wire        actualJump = jmpFlag & muxShouldJmp;
+   pcu_unit pc_u(clk, reset, iRegAvail, pcImm, actualJump, curPc);
 
-   wire        actualJmup = jmpFlag & muxShouldJmp;
-   pcu_unit pc_u(clk, reset, port2avail, pcImm, actualJmup, curPc);
-
-   reg [4:0] saveRDForLWCycle;
-   reg [1:0] memMode;
-   reg [1:0] byteAdr;
-   always @ (posedge clk) begin
-      saveRDForLWCycle <= selW;
-      byteAdr <= outA[1:0];
-      memMode <= imm[1:0];
-   end
-
-   wire [31:0] lwNibbleOut;
-   mem_nibble_ex load_nibble(port2o, memMode, byteAdr, lwNibbleOut);
+   reg[4:0] saveRDForLWCycle;
+   always @ (posedge clk)
+     saveRDForLWCycle <= selW;
 
    wire [15:0] imm;
 
-   wire [4:0]       selA, selB;
-   wire [31:0]      outA, outB;
-   wire [4:0]       selW;
-   wire             wWE;
-   register_file regs_u(clk, reset, selA, selB, outA, outB,
-                        port2avail ? saveRDForLWCycle : selW,
-                        port2avail || wWE,
-                        port2avail ? lwNibbleOut : aluResult);
+   wire [4:0]  selA, selB;
+   wire [31:0] outA, outB;
+   wire [4:0]  selW;
+   wire        wWE;
+   // For writes, rd stores the address, so we need to get it in outA
+   // For writes, rs1 stores the input word
+   register_file regs_u(.clk(clk), .reset(reset),
+                        // rs1 is the address
+                        .selA(wrAEn ? selW : selA), .selB(wrAEn ? selA : selB),
+                        .outA(outA), .outB(outB),
+                        .selW(port2avail ? saveRDForLWCycle : selW),
+                        .wWE(port2avail || wWE),
+                        .inW(port2avail ? port2o : aluResult));
 
-   scpu_ram_unit ram_u(.clk(clk), .reset(reset),
-                       .pc(curPc), .iReg(iReg), .iRegAvail(iRegAvail),
-                       .port2en(lwAEn), .port2adr(outA), .port2o(port2o), .port2avail(port2avail));
+   // sw will set rs1, which means port2i will get the proper write value; the saving is taken care of by the ram_unit
+   wire [31:0] iReg, port2o;
+   wire        iRegAvail, port2avail;
+   ram_unit ram_u(.clk(clk), .reset(reset),
+                  .pc(curPc), .iReg(iReg), .iRegAvail(iRegAvail),
+                  // outA will contain either rs1 od rd, depending on wrAEn
+                  .port2en(lwAEn || wrAEn), .wrEn(wrAEn),
+                  .port2adr(outA),
+                  // NOTE: port2i is only used for writes
+                  .port2i(outB), .memMode(memMode),
+                  .port2o(port2o), .port2avail(port2avail));
 
    wire [3:0]  aluCmd;
    wire        aluBMuxUseImm;
+   wire        lwAEn, wrAEn;
+   wire [1:0]  memMode;
    decoder decoder_u(iReg,
                      aluCmd,
                      imm, aluBMuxUseImm,
                      selA, selB, selW, wWE,
                      pcImm, jmpMode, jmpFlag,
-                     lwAEn,
+                     lwAEn, wrAEn, memMode,
                      haltTriggered, debugDump);
 
    alu alu_u(outA, aluBMuxUseImm ? imm : outB, aluResult, aluCmd);

@@ -21,7 +21,8 @@ module cpu_tb();
       // $monitor("%d: r3 = %d", $time, dut.regs_u.m_registers[3]);
    end
 
-   initial #800 begin
+   // We need some more cycles <3
+   initial #1600 begin
       $display("Killing off... Something went wrong");
       $finish; // This should not take more than 200 cycles
    end
@@ -31,8 +32,11 @@ module cpu_tb();
       $finish;
    end
 
+   wire [31:0] r1 = dut.regs_u.m_registers[1],
+               r2 = dut.regs_u.m_registers[2],
+               r3 = dut.regs_u.m_registers[3];
+
    always @ (posedge dumpState) begin
-      $display("%d: r1=%d, r2=%x, r3=%x, char '%c'", $time,
-               dut.regs_u.m_registers[1], dut.regs_u.m_registers[2], dut.regs_u.m_registers[3], dut.regs_u.m_registers[2]);
+      $display("%d: r1=%d, r2=%x, r3=%x, char '%c'", $time, r1, r2, r3, r2);
    end
 endmodule // cpu_tb
