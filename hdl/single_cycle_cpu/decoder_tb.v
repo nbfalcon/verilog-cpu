@@ -19,7 +19,7 @@ module decoder_tb();
    decoder dut(iReg, aluCmd, imm, aluBMuxUseImm, selA, selB, selW, wWE,
                pcImm, jmpMode, jmpFlag,
                haltTriggered, debugDump);
-
+   
    initial begin
       $monitor("iReg=%x, alu=%x, imm=%x, mux=%x, a=%x, b=%x, d=%x, we=%b, pc=%x, jmp=%b, hlt=%b",
                iReg, aluCmd, imm, aluBMuxUseImm, selA, selB, selW, wWE, pcImm, jmpFlag, haltTriggered);

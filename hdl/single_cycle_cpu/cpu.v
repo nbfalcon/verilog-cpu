@@ -12,25 +12,6 @@
 `define OP_DEBUG_DUMPSTATE 9
 `define OP_LW_SW 10
 
-`define JMP_ALWAYS 0
-`define JMP_LT 1
-`define JMP_EQ 2
-`define JMP_NEQ 3
-
-module cond_jmp_mux(input [2:0]  jmpMode,
-                    input [31:0] aluResult,
-                    output reg   shouldJmp);
-   wire signBit = aluResult[31];
-
-   always @ (*)
-     case (jmpMode)
-       `JMP_ALWAYS: shouldJmp <= 1;
-       `JMP_LT: shouldJmp <= signBit;
-       `JMP_EQ: shouldJmp <= aluResult == 0;
-       `JMP_NEQ: shouldJmp <= aluResult != 0;
-     endcase
-endmodule // cond_jmp_mux
-
 module decoder(input [31:0]     iReg,
                output reg [3:0] aluCmd,
                output [15:0]    imm, output aluBMuxUseImm,
@@ -96,6 +77,58 @@ module decoder(input [31:0]     iReg,
    assign haltTriggered = opcode == `OP_HLT;
    assign debugDump = opcode == `OP_DEBUG_DUMPSTATE;
 endmodule // decoder
+
+// Fault coprocessor
+`define C0_FAULT_ILL 0
+`define C0_FAULT_ILLFUNCT 1
+`define C0_FAULT_STATE 2
+`define C0_FAULT_ALU 3
+`define C0_FAULT_MEMRD 4
+`define C0_FAULT_MEMWR 5
+`define C0_FAULT_MEMEX 6
+
+`define C0_CMD_RETURN_FROM_INTERRUPT 0
+`define C0_CMD_SETSIG 1
+`define C0_CMD_GETSIG 2
+`define C0_CMD_GET_REASON 3
+
+module copr0(input         clk, input reset,
+             input [31:0]  oldPc,
+
+             input         isCoprCommand, input [7:0] coprCommand,
+             input [4:0]   inA, input [31:0] inB, output [31:0] out,
+
+             input         sigIllFault,
+             output [31:0] newPc, output setPc,
+             output        haveFault);
+   reg [31:0] faultAdresses[0:C0_FAULT_MEMEX];
+   reg [31:0] returnPc;
+   reg [4:0]  faultReason;
+
+   // We currently only have one fault type
+   wire       anyFault = sigIllFault;
+
+   always @ (posedge clk) begin
+      if (sigIllFault) begin
+         faultReason <= C0_FAULT_ILL;
+         newPc <= faultAdresses[`C0_FAULT_ILL];
+      end else if (isCoprCommand) begin
+         case (coprCommand)
+           `C0_CMD_RETURN_FROM_INTERRUPT: newPc <= returnPc;
+           `C0_CMD_SETSIG: faultAdresses[inA] <= inB;
+           `C0_CMD_GETSIG: out <= faultAdresses[inA];
+           `C0_CMD_GET_REASON: out <= faultReason;
+         endcase
+      end else newPc <= 32'bx;
+
+      if (anyFault) begin
+         returnPc <= oldPc;
+      end
+   end
+
+   assign haveFault = anyFault;
+   assign setPc = anyFault;
+endmodule
 
 module scpu(input clk, input reset, output haltTriggered, output debugDump);
    wire [31:0]      aluResult;

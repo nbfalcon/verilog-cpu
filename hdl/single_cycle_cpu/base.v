@@ -179,3 +179,22 @@ module ram_unit(input             clk, input reset,
        end
      endcase
 endmodule // ram_unit
+
+`define JMP_ALWAYS 0
+`define JMP_LT 1
+`define JMP_EQ 2
+`define JMP_NEQ 3
+
+module cond_jmp_mux(input [2:0]  jmpMode,
+                    input [31:0] aluResult,
+                    output reg   shouldJmp);
+   wire signBit = aluResult[31];
+
+   always @ (*)
+     case (jmpMode)
+       `JMP_ALWAYS: shouldJmp <= 1;
+       `JMP_LT: shouldJmp <= signBit;
+       `JMP_EQ: shouldJmp <= aluResult == 0;
+       `JMP_NEQ: shouldJmp <= aluResult != 0;
+     endcase
+endmodule // cond_jmp_mux
