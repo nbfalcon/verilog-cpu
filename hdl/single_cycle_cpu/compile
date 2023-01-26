@@ -1,5 +1,5 @@
 #!/bin/sh
-iverilog cpu_tb.v
+iverilog cpu_tb.sv
 
 cd ../../tools
 echo `pwd`

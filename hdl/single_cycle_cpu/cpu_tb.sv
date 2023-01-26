@@ -1,4 +1,4 @@
-`include "cpu.v"
+`include "cpu.sv"
 
 module cpu_tb();
    reg clk = 0;
@@ -18,7 +18,7 @@ module cpu_tb();
       $dumpfile("cpu.vcd");
       $dumpvars;
       // $monitor("%d: hlt=%b, pc=%x, iReg=%x", $time, haltWire, dut.curPc, dut.iReg);
-      // $monitor("%d: r3 = %d", $time, dut.regs_u.m_registers[3]);
+      // $monitor("%d: r3 = %d", $time, dut.regs.m_registers[3]);
    end
 
    // We need some more cycles <3
@@ -32,11 +32,11 @@ module cpu_tb();
       $finish;
    end
 
-   wire [31:0] r1 = dut.regs_u.m_registers[1],
-               r2 = dut.regs_u.m_registers[2],
-               r3 = dut.regs_u.m_registers[3];
+   wire [31:0] r1 = dut.regs.m_registers[1],
+               r2 = dut.regs.m_registers[2],
+               r3 = dut.regs.m_registers[3];
 
    always @ (posedge dumpState) begin
-      $display("%d: r1=%d, r2=%x, r3=%x, char '%c'", $time, r1, r2, r3, r2);
+      $display("%d: r1=%d, r2=%x, r3=%x, char '%c'", $time, r1, r2, r3, r2[7:0]);
    end
 endmodule // cpu_tb

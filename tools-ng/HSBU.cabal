@@ -1,0 +1,64 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           HSBU
+version:        0.0.0
+build-type:     Simple
+
+library
+  exposed-modules:
+      HSBU.Genas.Arch.NBFV3
+      HSBU.Genas.Assembler
+      HSBU.Genas.AssemblerCore
+      HSBU.Genas.AST
+      HSBU.Genas.BinWriter
+      HSBU.Genas.Dialect.MIPSLike
+      HSBU.Genas.InstructionParser
+  other-modules:
+      Paths_HSBU
+  hs-source-dirs:
+      src/
+  default-extensions:
+      NamedFieldPuns
+      DuplicateRecordFields
+      ImportQualifiedPost
+      GeneralizedNewtypeDeriving
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fno-warn-orphans
+  build-depends:
+      base >=4.9 && <5
+    , bytestring
+    , containers
+    , either
+    , extra
+    , megaparsec
+    , text
+    , transformers
+  default-language: Haskell2010
+
+executable Genas
+  main-is: Genas/Main.hs
+  other-modules:
+      Paths_HSBU
+  hs-source-dirs:
+      app/
+  default-extensions:
+      NamedFieldPuns
+      DuplicateRecordFields
+      ImportQualifiedPost
+      GeneralizedNewtypeDeriving
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fno-warn-orphans
+  build-depends:
+      HSBU
+    , base >=4.9 && <5
+    , bytestring
+    , containers
+    , either
+    , extra
+    , megaparsec
+    , optparse-applicative
+    , text
+    , transformers
+  default-language: Haskell2010

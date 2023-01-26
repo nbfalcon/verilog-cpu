@@ -1,0 +1,41 @@
+name: HSBU
+# extra-source-files:
+
+# ImportQualifiedPost is needed because fourmulo for some reason assumes this and breaks the code otherwise
+default-extensions:
+  - NamedFieldPuns
+  - DuplicateRecordFields
+  - ImportQualifiedPost
+  - GeneralizedNewtypeDeriving
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Widentities
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wmissing-home-modules
+  - -Wpartial-fields
+  - -Wredundant-constraints
+  - -fno-warn-orphans
+
+dependencies:
+  - base >= 4.9 && < 5
+  - bytestring
+  - text
+  - megaparsec
+  - either
+  - containers
+  - extra
+  - transformers
+
+library:
+  source-dirs: src/
+  
+executables:
+  Genas:
+    main: Genas/Main.hs
+    source-dirs: app/
+    dependencies:
+      - HSBU
+      - optparse-applicative

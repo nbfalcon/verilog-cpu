@@ -4,5 +4,5 @@ echo `pwd`
 cabal run genas -- ../hdl/single_cycle_cpu/input.S ../hdl/single_cycle_cpu/output
 cd ../hdl/single_cycle_cpu
 echo `pwd`
-iverilog cpu_tb.v
+iverilog cpu_tb.sv
 ./a.out
