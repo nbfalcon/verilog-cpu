@@ -2,29 +2,33 @@
 
 module HSBU.Genas.AssemblerCore where
 
-import Control.Monad.Trans.Writer
+import Control.Monad.Trans.Maybe
+import Control.Monad.Writer
 import Data.Word
 import HSBU.Genas.AST
 import Data.List (singleton)
+import Control.Applicative (Alternative)
 
-newtype AssemblerError = ErrorMessage String
-newtype AssemblerMonad a = AssemblerMonad {runAssemblerM :: Writer [AssemblerError] a} deriving (Functor, Applicative, Monad)
+data AssemblerError = ErrorMessage {message :: String, location :: !SLocation}
+
+newtype AssemblerMonad a = AssemblerMonad {runAssemblerM :: MaybeT (Writer [AssemblerError]) a} deriving (Functor, Applicative, Monad, Alternative, MonadPlus)
+deriving instance MonadWriter [AssemblerError] AssemblerMonad
 
 instance Show AssemblerError where
-    show (ErrorMessage s) = s
+    show ErrorMessage{message, location} = show location ++ ": " ++ message
 
-newError :: String -> AssemblerMonad ()
-newError = AssemblerMonad . tell . singleton . ErrorMessage
+newError :: SLocation -> String -> AssemblerMonad ()
+newError location message = AssemblerMonad $ tell $ singleton $ ErrorMessage{location, message}
 
-errorV :: String -> a -> AssemblerMonad a
-errorV m defaultValue = newError m >> pure defaultValue
+failAssembly :: AssemblerMonad a
+failAssembly = mzero
 
-data EncodeMe = EncodeMe {instructionId :: String, args :: [LArg]}
+type EncodeMe = LLine
 
 type EncodeFunc = EncodeMe -> AssemblerMonad Word32
 data InstructionDef = InstructionDef {name :: String, encoder :: EncodeFunc}
 
 data Assembler = Assembler {isa :: [InstructionDef]}
 
-runAssembler :: AssemblerMonad a -> (a, [AssemblerError])
-runAssembler = runWriter . runAssemblerM
+runAssembler :: AssemblerMonad a -> (Maybe a, [AssemblerError])
+runAssembler = runWriter . runMaybeT . runAssemblerM

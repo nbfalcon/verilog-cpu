@@ -141,7 +141,7 @@ encode LSWCoding{_lwOpcode, memMode, isStore} LSWArgs{rs, rd} =
     .|. cRd rd
     .|. cRs1 rs
     .|. cMemMode memMode
-    .|. cLSWSel (if isStore then 1 else 0)
+    .|. cLSWSel (if isStore then 1 else 0 :: Int)
 
 regRange :: (Enum b, Show b, Num b) => [Char] -> (b, b) -> b -> [([Char], b)]
 regRange nameBase (mapFrom, mapTo) nameFrom = [(nameBase ++ show (nameFrom + i), mapFrom + i) | i <- [0 .. n - 1]]
@@ -165,32 +165,32 @@ parseReg :: String -> Int
 parseReg regName = fromJust $ readMaybe @Int regName <|> regName `M.lookup` regTable
 
 reg1 :: InstructionArgParser Int
-reg1 = parseReg <$> oneArg reg
+reg1 = parseReg <$> reg
 
 class ParserFor args where
   getParser :: InstructionArgParser args
 
 instance ParserFor NoArgs where
-  getParser = NoArgs <$ noMore
+  getParser = pure NoArgs
 
 instance ParserFor R3Args where
-  getParser = R3Args <$> reg1 <*> reg1 <*> reg1 <* noMore
+  getParser = R3Args <$> reg1 <*> reg1 <*> reg1
 
 instance ParserFor R2IArgs where
-  getParser = R2IArgs <$> reg1 <*> reg1 <*> (fromIntegral <$> oneArg imm) <* noMore
+  getParser = R2IArgs <$> reg1 <*> reg1 <*> (fromIntegral <$> imm)
 
 instance ParserFor JArgs where
-  getParser = JArgs <$> reg1 <*> reg1 <*> (fromIntegral <$> oneArg labelRef) <* noMore
+  getParser = JArgs <$> reg1 <*> reg1 <*> (fromIntegral <$> labelRef)
 
 instance ParserFor JAbsArgs where
-  getParser = JAbsArgs <$> (fromIntegral <$> oneArg labelRef) <* noMore
+  getParser = JAbsArgs <$> (fromIntegral <$> labelRef)
 
 instance ParserFor LSWArgs where
-  getParser = LSWArgs <$> reg1 <*> reg1 <* noMore
+  getParser = LSWArgs <$> reg1 <*> reg1
 
 encodeInstruction :: forall args. ParserFor args => Instruction args -> EncodeFunc
 encodeInstruction i encodeMe = do
-  args' <- runGetArgs (getParser @args) (args encodeMe)
+  args' <- runGetArgs (getParser @args) encodeMe
   let coding = getCoding i
   return $ encode coding args'
 

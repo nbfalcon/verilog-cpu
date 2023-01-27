@@ -1,17 +1,17 @@
 module Main where
 
+import Control.Monad
+import Data.ByteString qualified as BS
 import Data.Text.IO qualified as T
+import HSBU.Genas.Arch.NBFV3 qualified as ArchNBFV3
 import HSBU.Genas.Assembler
 import HSBU.Genas.AssemblerCore
+import HSBU.Genas.BinWriter
 import HSBU.Genas.Dialect.MIPSLike qualified as DialectMIPS
-import HSBU.Genas.Arch.NBFV3 qualified as ArchNBFV3
-import Data.ByteString.Lazy qualified as BL
 import Options.Applicative
 import Paths_HSBU (version)
 import Text.Megaparsec
-import qualified Data.ByteString as BS
-import Data.Either
-import HSBU.Genas.BinWriter (hexEncodeWordsBE)
+import Data.Maybe
 
 data Options = Options
     { assembleMe :: FilePath
@@ -38,14 +38,17 @@ runProgram opts = do
     case result of
         Left errors -> putStrLn $ errorBundlePretty errors
         Right sAST -> do
-            print sAST
+            -- print sAST
             let (assembled, errors) = runAssembler $ assemble ArchNBFV3.assembler sAST
-            BS.writeFile (outputObject opts) $ hexEncodeWordsBE assembled
-            print errors
-            return ()
-    return ()
+            mapM_ print errors
+            forM_ assembled $ BS.writeFile (outputObject opts) . hexEncodeWordsBE
+            let status
+                    | isNothing assembled = "Assembly failed."
+                    | not $ null errors = "Assembly succeeded with errors."
+                    | otherwise = "Assembly failed"
+            putStrLn status
 
+main :: IO ()
 main = do
     options <- execParser fullOptionsParser
     runProgram options
-    return ()
