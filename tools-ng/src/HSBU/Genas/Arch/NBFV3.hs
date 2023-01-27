@@ -29,7 +29,7 @@ data NoArgs = NoArgs deriving (Show, Args)
 data R3Args = R3Args {rd :: Reg, rs1 :: Reg, rs2 :: Reg} deriving (Show, Args)
 data R2IArgs = R2IArgs {rd :: Reg, rs :: Reg, aluImm :: Int16} deriving (Show, Args)
 data JArgs = JArgs {rs1 :: Reg, rs2 :: Reg, jImm :: Int16} deriving (Show, Args)
-newtype JAbsArgs = JAbsArgs {jImm :: Int16} deriving anyclass (Show, Args)
+newtype JAbsArgs = JAbsArgs {jImm :: Int16} deriving stock (Show) deriving anyclass Args
 data LSWArgs = LSWArgs {rd :: Reg, rs :: Reg} deriving (Show, Args)
 
 data Instruction args where
