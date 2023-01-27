@@ -38,14 +38,14 @@ runProgram opts = do
     case result of
         Left errors -> putStrLn $ errorBundlePretty errors
         Right sAST -> do
-            -- print sAST
+            print sAST
             let (assembled, errors) = runAssembler $ assemble ArchNBFV3.assembler sAST
             mapM_ print errors
             forM_ assembled $ BS.writeFile (outputObject opts) . hexEncodeWordsBE
             let status
                     | isNothing assembled = "Assembly failed."
                     | not $ null errors = "Assembly succeeded with errors."
-                    | otherwise = "Assembly failed"
+                    | otherwise = "Assembly succeeded."
             putStrLn status
 
 main :: IO ()

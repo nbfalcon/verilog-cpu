@@ -23,8 +23,6 @@ newError location message = AssemblerMonad $ tell $ singleton $ ErrorMessage{loc
 failAssembly :: AssemblerMonad a
 failAssembly = mzero
 
-type EncodeMe = LLine
-
 type EncodeFunc = EncodeMe -> AssemblerMonad Word32
 data InstructionDef = InstructionDef {name :: String, encoder :: EncodeFunc}
 

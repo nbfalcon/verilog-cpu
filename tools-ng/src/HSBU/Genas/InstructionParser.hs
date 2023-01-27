@@ -22,8 +22,8 @@ getTypeS (LRegister _) = "reg"
 getTypeS (LImmediate _) = "imm"
 getTypeS (LLabelRef _) = "label"
 
-runGetArgs :: InstructionArgParser a -> LLine -> AssemblerMonad a
-runGetArgs InstructionArgParser {runInstructionArgParser, expects} LInstruction { args, locInstructionName } = case runInstructionArgParser args >>= consumedAll of
+runGetArgs :: InstructionArgParser a -> EncodeMe -> AssemblerMonad a
+runGetArgs InstructionArgParser {runInstructionArgParser, expects} EncodeMe { args, locInstructionName } = case runInstructionArgParser args >>= consumedAll of
     Nothing -> newError locInstructionName ("Expected " ++ expectedMsg ++ ", but got: " ++ actualMsg) >> mzero
     Just v -> pure v
     where consumedAll (v, []) = Just v

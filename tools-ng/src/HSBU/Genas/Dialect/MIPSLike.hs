@@ -2,7 +2,7 @@
 
 module HSBU.Genas.Dialect.MIPSLike where
 
-import Data.Text
+import Data.Text as T
 import Data.Void
 import HSBU.Genas.AST
 import Text.Megaparsec as P
@@ -38,7 +38,7 @@ registerE = char '$' *> (ident <|> many digitChar)
 many1 :: Parser a -> Parser [a]
 many1 p = p *:> many p
 
-numberE :: Parser Integer
+numberE :: Read a =>Parser a
 numberE = read <$> many1 numberChar
 
 labelRefE :: Parser String
@@ -70,11 +70,25 @@ instruction = do
     (args, locArgs) <- unzip <$> instructionArgs
     return SInstruction{instructionName, args, locInstructionName, locArgs}
 
-labelDeclId :: Parser String
-labelDeclId = ident <* char ':'
+labelDecl :: Parser SLine
+labelDecl = do
+    (labelName, locLabel) <- located $ ident <* char ':'
+    return SLabelDecl { labelName, locLabel }
+
+stringLiteral :: Parser String
+stringLiteral = (char '"' >> manyTill L.charLiteral (char '"')) <|> (char '\'' >> manyTill L.charLiteral (char '\''))
+
+stringLiteralT :: Parser Text
+stringLiteralT = T.pack <$> stringLiteral
+
+specialDecl :: Parser SLine
+specialDecl
+    = lexeme2 (string ".align") *> (SOpInjection . uncurry OAlignDecl <$> (lexeme2 $ located numberE))
+    <|> lexeme2 (string ".ascii") *> (SOpInjection . uncurry OStringInCode <$> (lexeme2 $ located stringLiteralT))
+    <|> lexeme2 (string ".asciz") *> (SOpInjection . uncurry OStringInCode <$> (lexeme2 $ located (T.pack . (++ "\0") <$> stringLiteral)))
 
 line :: Parser SLine
-line = try (uncurry SLabelDecl <$> located labelDeclId) <|> instruction
+line = specialDecl <|> try labelDecl <|> instruction
 
 sourceFile :: Parser SAST
-sourceFile = skipSpace' space1 *> many (lexeme2 line)
+sourceFile = skipSpace' space1 *> many (lexeme2 line) <* eof
