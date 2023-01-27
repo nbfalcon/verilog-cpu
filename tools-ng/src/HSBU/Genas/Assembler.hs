@@ -11,13 +11,17 @@ import Data.Semigroup
 import Data.Text.Encoding qualified as T
 import HSBU.Genas.AST
 import HSBU.Genas.AssemblerCore
+import qualified Data.Text as T
 
 type Labels = M.Map String Int32
 labelingPass :: SAST -> Labels
 labelingPass = snd . foldl' handleI (0, M.empty)
  where
-  handleI (addr, label2addr) (SLabelDecl{labelName}) = (addr, M.insert labelName addr label2addr)
-  handleI (addr, label2addr) _anyInstruction = (addr + 4, label2addr)
+  handleI :: (Int32, Labels) -> SLine -> (Int32, Labels)
+  handleI (addr, label2addr) SLabelDecl{labelName} = (addr, M.insert labelName addr label2addr)
+  handleI (addr, label2addr) (SOpInjection OStringInCode{text}) = (addr + fromIntegral (T.length text), label2addr)
+  handleI (addr, label2addr) (SOpInjection OAlignDecl{alignTo}) = (addr + (alignTo - addr) `mod` alignTo, label2addr)
+  handleI (addr, label2addr) SInstruction{} = (addr + 4, label2addr)
 
 reduceASTPass :: Labels -> SAST -> LAST
 reduceASTPass labels = mapMaybe labelI
@@ -43,7 +47,7 @@ assemblePass Assembler'{i2enc} = fmap (toLazyByteString . mconcat) . mapM (encod
       encoded <- encoder coder $ EncodeMe{instructionId, args, locInstructionName, locArgs}
       pure $ word32LE encoded
   encodeI _ip (LOpInjection (OStringInCode{text})) = pure $ T.encodeUtf8Builder text
-  encodeI ip (LOpInjection (OAlignDecl{alignTo})) = pure $ stimes (ip `mod` alignTo) $ word8 0
+  encodeI ip (LOpInjection (OAlignDecl{alignTo})) = pure $ stimes ((alignTo - ip) `mod` alignTo) $ word8 0
 
 assemble :: Assembler -> SAST -> AssemblerMonad BL.ByteString
 assemble asm src = do

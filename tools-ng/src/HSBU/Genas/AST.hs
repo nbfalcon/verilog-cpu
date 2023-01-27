@@ -11,7 +11,7 @@ instance Show SLocation where
 
 data OpInjection
     = OStringInCode { text :: Text, locText :: SLocation }
-    | OAlignDecl { alignTo :: Int, locAlign :: SLocation }
+    | OAlignDecl { alignTo :: Int32, locAlign :: SLocation }
     deriving (Show)
 
 -- S for source: this is the first high-level AST
