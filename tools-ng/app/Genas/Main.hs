@@ -2,6 +2,7 @@ module Main where
 
 import Control.Monad
 import Data.ByteString qualified as BS
+import Data.Maybe
 import Data.Text.IO qualified as T
 import HSBU.Genas.Arch.NBFV3 qualified as ArchNBFV3
 import HSBU.Genas.Assembler
@@ -11,7 +12,8 @@ import HSBU.Genas.Dialect.MIPSLike qualified as DialectMIPS
 import Options.Applicative
 import Paths_HSBU (version)
 import Text.Megaparsec
-import Data.Maybe
+import qualified Data.ByteString as BL
+import System.IO
 
 data Options = Options
     { assembleMe :: FilePath
@@ -32,21 +34,21 @@ fullOptionsParser = info (bonusOptions *> optionsParser) description
     description = fullDesc <> progDesc "Genas" <> header "Genas - the generic assembler of HSBU"
 
 runProgram :: Options -> IO ()
-runProgram opts = do
-    content <- T.readFile (assembleMe opts)
-    let result = parse DialectMIPS.sourceFile (assembleMe opts) content
+runProgram Options{assembleMe, outputObject} = do
+    content <- T.readFile assembleMe
+    let result = parse DialectMIPS.sourceFile assembleMe content
     case result of
         Left errors -> putStrLn $ errorBundlePretty errors
         Right sAST -> do
-            print sAST
+            -- print sAST
             let (assembled, errors) = runAssembler $ assemble ArchNBFV3.assembler sAST
             mapM_ print errors
-            forM_ assembled $ BS.writeFile (outputObject opts) . hexEncodeWordsBE
             let status
                     | isNothing assembled = "Assembly failed."
                     | not $ null errors = "Assembly succeeded with errors."
                     | otherwise = "Assembly succeeded."
-            putStrLn status
+            (if outputObject == "-" then hPutStrLn stderr else putStrLn) status
+            forM_ assembled $ (if outputObject == "-" then BL.putStr else BS.writeFile outputObject) . hexEncodeWordsBE
 
 main :: IO ()
 main = do
