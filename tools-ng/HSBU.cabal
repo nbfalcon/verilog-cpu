@@ -30,6 +30,7 @@ library
       StandaloneDeriving
       FlexibleInstances
       MultiParamTypeClasses
+      FunctionalDependencies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wredundant-constraints -fno-warn-orphans
   build-depends:
       base >=4.9 && <5
@@ -59,6 +60,7 @@ executable Genas
       StandaloneDeriving
       FlexibleInstances
       MultiParamTypeClasses
+      FunctionalDependencies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wredundant-constraints -fno-warn-orphans
   build-depends:
       HSBU

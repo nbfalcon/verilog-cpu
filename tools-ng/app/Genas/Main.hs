@@ -40,7 +40,7 @@ runProgram Options{assembleMe, outputObject} = do
     case result of
         Left errors -> putStrLn $ errorBundlePretty errors
         Right sAST -> do
-            -- print sAST
+            -- mapM_ print $ uncurry (flip patchUnwrapArgs) $ unwrapWrapArgs sAST
             let (assembled, errors) = runAssembler $ assemble ArchNBFV3.assembler sAST
             mapM_ print errors
             let status

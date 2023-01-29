@@ -55,6 +55,7 @@ oneArg' expect subParser = InstructionArgParser {runInstructionArgParser=run, ex
 imm :: InstructionArgParser Integer
 imm = oneArg' "imm" $ \case
     LImmediate i -> pure i
+    LLabelRef a -> pure (fromIntegral a)
     _ -> Nothing
 
 reg :: InstructionArgParser String

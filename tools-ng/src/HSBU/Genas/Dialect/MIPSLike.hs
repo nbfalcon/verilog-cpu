@@ -41,14 +41,18 @@ many1 p = p *:> many p
 numberE :: Read a =>Parser a
 numberE = read <$> many1 numberChar
 
-labelRefE :: Parser String
-labelRefE = ident
+stringLiteral :: Parser String
+stringLiteral = (char '"' >> manyTill L.charLiteral (char '"')) <|> (char '\'' >> manyTill L.charLiteral (char '\''))
+
+stringLiteralT :: Parser Text
+stringLiteralT = T.pack <$> stringLiteral
 
 expression :: Parser SArg
-expression =
-    (SImmediate <$> numberE)
-        <|> (SRegister <$> registerE)
-        <|> (SLabelRef <$> labelRefE)
+expression
+    = (SImmediate <$> numberE)
+    <|> (SRegister <$> registerE)
+    <|> (SLabelRef <$> ident)
+    <|> (SWrapInLabel . SWrappedString <$> stringLiteralT)
 
 skipSpace' :: Parser () -> Parser ()
 skipSpace' spc = L.space spc (L.skipLineComment "//" <|> L.skipLineComment "#" <|> L.skipLineComment ";") (L.skipBlockComment "/*" "*/")
@@ -75,17 +79,13 @@ labelDecl = do
     (labelName, locLabel) <- located $ ident <* char ':'
     return SLabelDecl { labelName, locLabel }
 
-stringLiteral :: Parser String
-stringLiteral = (char '"' >> manyTill L.charLiteral (char '"')) <|> (char '\'' >> manyTill L.charLiteral (char '\''))
-
-stringLiteralT :: Parser Text
-stringLiteralT = T.pack <$> stringLiteral
-
 specialDecl :: Parser SLine
 specialDecl
     = lexeme2 (string ".align") *> (SOpInjection . uncurry OAlignDecl <$> (lexeme2 $ located numberE))
     <|> lexeme2 (string ".ascii") *> (SOpInjection . uncurry OStringInCode <$> (lexeme2 $ located stringLiteralT))
     <|> lexeme2 (string ".asciz") *> (SOpInjection . uncurry OStringInCode <$> (lexeme2 $ located (T.pack . (++ "\0") <$> stringLiteral)))
+    <|> lexeme2 (string ".use") *> (uncurry SWrapLabelUseSection <$> (located $ lexeme2 $ T.pack <$> ident))
+    <|> lexeme2 (string ".wrapHere") *> (uncurry SWrapLabelSection <$> (located $ lexeme2 $ T.pack <$> ident))
 
 line :: Parser SLine
 line = specialDecl <|> try labelDecl <|> instruction
