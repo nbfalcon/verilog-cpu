@@ -11,7 +11,7 @@ import Data.Int
 import Data.IntMap.Strict qualified as MI
 import Data.List (foldl')
 import Data.Map qualified as M
-import Data.Maybe (fromJust, mapMaybe)
+import Data.Maybe (fromJust)
 import Data.Semigroup
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
@@ -66,22 +66,30 @@ labelingPass = snd . foldl' handleI (0, Labels{realLabels = M.empty, pseudoLabel
   handleI a SWrapLabelUseSection{} = a
   handleI a SWrapLabelSection{} = a
 
-reduceASTPass :: Labels -> SAST -> LAST
-reduceASTPass Labels{realLabels, pseudoLabels} = mapMaybe labelI
+reduceASTPass :: Labels -> SAST -> AssemblerMonad LAST
+reduceASTPass Labels{realLabels, pseudoLabels} = mapMaybeM labelI
  where
-  labelI SLabelDecl{} = Nothing
-  labelI SPseudoLabelDecl{} = Nothing
-  labelI SWrapLabelSection{} = Nothing
-  labelI SWrapLabelUseSection{} = Nothing
-  labelI SInstruction{instructionName, args = sargs, locInstructionName, locArgs} = Just $ LInstruction{instructionId = instructionName, args = reduceArgs sargs, locInstructionName, locArgs}
-  labelI (SOpInjection w) = pure $ LOpInjection w
+  labelI :: SLine -> AssemblerMonad (Maybe LLine)
+  labelI SLabelDecl{} = pure Nothing
+  labelI SPseudoLabelDecl{} = pure Nothing
+  labelI SWrapLabelSection{} = pure Nothing
+  labelI SWrapLabelUseSection{} = pure Nothing
+  labelI SInstruction{instructionName, args = sargs, locInstructionName, locArgs} = do
+    args' <- zipWithM reduceArg sargs locArgs
+    pure $ Just $ LInstruction{instructionId = instructionName, args = args', locInstructionName, locArgs}
+  labelI (SOpInjection w) = pure $ Just $ LOpInjection w
 
-  reduceArgs = map reduceArg
-  reduceArg (SImmediate i) = LImmediate i
-  reduceArg (SRegister r) = LRegister r
-  reduceArg (SLabelRef name) = LLabelRef $ fromJust $ M.lookup name realLabels
-  reduceArg (SPseudoLabelRef labelId) = LLabelRef $ fromJust $ MI.lookup labelId pseudoLabels
-  reduceArg (SWrapInLabel _) = labelError
+  reduceArg :: SArg -> SLocation -> AssemblerMonad LArg
+  reduceArg (SImmediate i) _loc = pure $ LImmediate i
+  reduceArg (SRegister r) _loc = pure $ LRegister r
+  reduceArg (SLabelRef name) loc = do
+    address <-
+      maybe (newError loc ("Undeclared label " ++ name) >> failAssembly) pure $
+        M.lookup name realLabels
+    pure $ LLabelRef address
+  -- this cannot fail, fromJust is ok
+  reduceArg (SPseudoLabelRef labelId) _loc = pure $ LLabelRef $ fromJust $ MI.lookup labelId pseudoLabels
+  reduceArg (SWrapInLabel _) _loc = labelError
 
 newtype Assembler' = Assembler' {i2enc :: M.Map String InstructionDef}
 getAssembler' :: Assembler -> Assembler'
@@ -108,6 +116,6 @@ assemble asm src = do
   let ast'' = patchUnwrapArgs use2Ast ast'
 
   let labels = labelingPass ast''
-  let lAST = reduceASTPass labels ast''
+  lAST <- reduceASTPass labels ast''
   let asm' = getAssembler' asm
   assemblePass asm' lAST

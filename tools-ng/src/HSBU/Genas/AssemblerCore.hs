@@ -17,6 +17,9 @@ deriving instance MonadWriter [AssemblerError] AssemblerMonad
 instance Show AssemblerError where
     show ErrorMessage{message, location} = show location ++ ": " ++ message
 
+liftErrors :: [AssemblerError] -> AssemblerMonad ()
+liftErrors = AssemblerMonad . tell
+
 newError :: SLocation -> String -> AssemblerMonad ()
 newError location message = AssemblerMonad $ tell $ singleton $ ErrorMessage{location, message}
 

@@ -14,7 +14,6 @@ import Control.Applicative
 import Data.Bits
 import Data.Int
 import Data.Map qualified as M
-import Data.Maybe
 import Data.Word (Word32, Word8)
 import HSBU.Genas.AssemblerCore
 import HSBU.Genas.InstructionParser
@@ -161,11 +160,12 @@ regTable =
       ++ regRange "k" (26, 27) 0
       ++ [("gp", 28), ("sp", 29), ("fp", 30), ("ra", 31)]
 
-parseReg :: String -> Int
-parseReg regName = fromJust $ readMaybe @Int regName <|> regName `M.lookup` regTable
+parseReg :: String -> InstructionArgParserM Int
+parseReg regName = maybe (eReg >> failedDefaultValue 0) pure $ readMaybe @Int regName <|> regName `M.lookup` regTable
+  where eReg = instructionParserError $ "Invalid register name " ++ regName
 
 reg1 :: InstructionArgParser Int
-reg1 = parseReg <$> reg
+reg1 = reg `composeParser` parseReg
 
 class ParserFor args where
   getParser :: InstructionArgParser args
