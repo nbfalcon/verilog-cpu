@@ -1,5 +1,2 @@
-/output.bin
-/output.hex
-/a.out
-/cpu.vcd
-/obj_dir/
+/build/
+/.cache/

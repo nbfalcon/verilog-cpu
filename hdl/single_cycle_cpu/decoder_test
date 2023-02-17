@@ -1,4 +1,0 @@
-#!/bin/sh
-
-iverilog decoder_tb.v
-./a.out

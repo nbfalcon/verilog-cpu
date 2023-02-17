@@ -151,7 +151,7 @@ regRange nameBase (mapFrom, mapTo) nameFrom = [(nameBase ++ show (nameFrom + i),
 regTable :: M.Map String Int
 regTable =
   M.fromList $
-    [("zero", 0), ("r0", 0), ("at", 1)]
+    [("zero", 0), ("at", 1)]
       ++ regRange "v" (2, 3) 0
       ++ regRange "a" (4, 7) 0
       ++ regRange "t" (8, 15) 0
@@ -161,7 +161,8 @@ regTable =
       ++ [("gp", 28), ("sp", 29), ("fp", 30), ("ra", 31)]
 
 parseReg :: String -> InstructionArgParserM Int
-parseReg regName = maybe (eReg >> failedDefaultValue 0) pure $ readMaybe @Int regName <|> regName `M.lookup` regTable
+parseReg ('r':num) = pure $ read num
+parseReg regName = maybe (eReg >> failedDefaultValue 0) pure $ regName `M.lookup` regTable
   where eReg = instructionParserError $ "Invalid register name " ++ regName
 
 reg1 :: InstructionArgParser Int

@@ -1,6 +1,0 @@
-#!/bin/sh
-iverilog cpu_tb.sv
-
-cd ../../tools
-echo `pwd`
-cabal run genas -- ../hdl/single_cycle_cpu/input.S ../hdl/single_cycle_cpu/output
