@@ -143,8 +143,8 @@ encode LWCoding{_lwOpcode, memMode} LSWArgs{rs, rd} =
     .|. cMemMode memMode
 encode SWCoding{_swOpcode, memMode} LSWArgs{rs, rd} =
   cOpcode _swOpcode
-    .|. cRs1 rs
-    .|. cRs2 rd
+    .|. cRs1 rd
+    .|. cRs2 rs
     .|. cMemMode memMode
     .|. cLSWSel (1 :: Word8)
 

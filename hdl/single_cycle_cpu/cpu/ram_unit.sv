@@ -17,7 +17,9 @@ module ram_unit
   assign outw1 = memory[address1>>2];
 
   wire cpu_word outw2W = memory[address2>>2];
-  mem_nibble_ex nibble2(.fetchedWord(outw2W), .memMode(memMode2), .byteAdr(address2[1:0]), .finalWord(outw2));
-
-  always_ff @(posedge clk) if (port2isStore) memory[address2>>2] <= inw2;
+  mem_nibble_ex nibble2_r(.fetchedWord(outw2W), .memMode(memMode2), .byteAdr(address2[1:0]), .finalWord(outw2));
+  
+  wire cpu_word inw2w;
+  mem_nibble_wr nibble2_w(.oldWord(outw2W), .newWord(inw2), .memMode(memMode2), .byteAdr(address2[1:0]), .finalWord(inw2w));
+  always_ff @(posedge clk) if (port2isStore) memory[address2>>2] <= inw2w;
 endmodule

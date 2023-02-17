@@ -1,5 +1,5 @@
 ; copy_loop
-addi $r1, $r0, 1 ; for i = 0;
+addi $r1, $r0, 0 ; for i = 0;
 addi $r3, $r0, hello_world ; s = "Hello..."
 addi $r5, $r0, free_memory ; out = .bss
 
@@ -17,7 +17,7 @@ sb $r6, $r0 ; actually, one more thing: the NUL byte shouldn't be incremented
 
 ; print loop (stage 2)
 addi $r1, $r0, free_memory
-addi $r3, $r0, 1
+addi $r3, $r0, 0
 print_loop2:
 add $r4, $r1, $r3
 lb $r2, $r4
