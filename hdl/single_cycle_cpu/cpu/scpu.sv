@@ -14,7 +14,8 @@ module scpu
       .*, .pcIn(32'(jmpImm)), .shouldJump(jmpEn && muxJump), .pcOut(pc)
   );
   wire cpu_word iReg;
-  rom_simple rom(.address(pc), .outw(iReg));
+  wire cpu_word outw2;
+  ram_unit ram(.*, .address1(pc), .outw1(iReg), .address2(r1), .port2isStore(memStore), .inw2(r2));
 
   // Decode
   wire reg_select rs1;
@@ -24,15 +25,14 @@ module scpu
 
   wire alu_cmd aluCmd;
   wire logic   aluUseImm;
-  wire logic   aluWE;
+  wire logic   rdWE;
 
   wire jmp_cond jmpMode;
   wire cpu_half jmpImm;
   wire logic jmpEn;
 
-  wire logic lsEn;
+  wire logic memLoad, memStore;
   wire mem_mode lsMode;
-  wire logic isStore;
 
   wire logic xHalt;
   wire logic xDebugDump;
@@ -45,8 +45,7 @@ module scpu
       .rs1 (rs1),
       .rs2 (rs2),
       .rd  (rd),
-      .rdWE(aluWE),
-      .dw  (outlo)
+      .dw  (memLoad ? outw2 : outlo)
   );
   wire cpu_word outlo;
   alu aluu (

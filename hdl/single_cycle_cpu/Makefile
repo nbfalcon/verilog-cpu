@@ -1,6 +1,6 @@
 .PHONY: sim
 
-SIM_PROG ?= loop_count_up
+SIM_PROG ?= load_store
 
 sim: build/Vscpu_tb build/output.hex
 	./build/Vscpu_tb

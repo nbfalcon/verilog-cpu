@@ -26,7 +26,8 @@ data NoArgs = NoArgs deriving (Show, Args)
 data R3Args = R3Args {rd :: Reg, rs1 :: Reg, rs2 :: Reg} deriving (Show, Args)
 data R2IArgs = R2IArgs {rd :: Reg, rs :: Reg, aluImm :: Int16} deriving (Show, Args)
 data JArgs = JArgs {rs1 :: Reg, rs2 :: Reg, jImm :: Int16} deriving (Show, Args)
-newtype JAbsArgs = JAbsArgs {jImm :: Int16} deriving stock (Show)
+newtype JAbsArgs = JAbsArgs {jImm :: Int16}
+  deriving stock (Show)
   deriving anyclass (Args)
 data LSWArgs = LSWArgs {rd :: Reg, rs :: Reg} deriving (Show, Args)
 
@@ -60,7 +61,8 @@ data Coding args where
   JAbsCoding :: {_jaOpcode :: Opcode} -> Coding JAbsArgs
   R3Coding :: {_r3Opcode :: Opcode, funct :: Funct} -> Coding R3Args
   R2ICoding :: {_r2iOpcode :: Opcode} -> Coding R2IArgs
-  LSWCoding :: {_lwOpcode :: Opcode, memMode :: Word8, isStore :: Bool} -> Coding LSWArgs
+  LWCoding :: {_lwOpcode :: Opcode, memMode :: Word8} -> Coding LSWArgs
+  SWCoding :: {_swOpcode :: Opcode, memMode :: Word8} -> Coding LSWArgs
 
 getCoding :: Instruction args -> Coding args
 getCoding I_NOP = SimpleCoding 0
@@ -74,12 +76,12 @@ getCoding I_BLT = JCoding 6
 getCoding I_BEQ = JCoding 7
 getCoding I_BNEQ = JCoding 8
 getCoding I_DEBUG_DUMPSTATE = SimpleCoding 9
-getCoding I_LW = LSWCoding 10 0 False
-getCoding I_LH = LSWCoding 10 1 False
-getCoding I_LB = LSWCoding 10 2 False
-getCoding I_SW = LSWCoding 10 0 True
-getCoding I_SH = LSWCoding 10 1 True
-getCoding I_SB = LSWCoding 10 2 True
+getCoding I_LW = LWCoding 10 0
+getCoding I_LH = LWCoding 10 1
+getCoding I_LB = LWCoding 10 2
+getCoding I_SW = SWCoding 10 0
+getCoding I_SH = SWCoding 10 1
+getCoding I_SB = SWCoding 10 2
 
 getFTBitmask :: (Bits a, Num a) => Int -> Int -> a
 getFTBitmask fromB toB = complement (complement 0 `shiftL` (toB - fromB + 1))
@@ -105,7 +107,7 @@ cFunct = theseBits (21, 31)
 cLSWSel :: CodingHelper
 cLSWSel = theseBits (31, 31)
 cMemMode :: CodingHelper
-cMemMode = theseBits (16, 17)
+cMemMode = theseBits (22, 21)
 cJImm :: CodingHelper
 cJImm jImm = cRd (exBits (0, 4) i) .|. cFunct (exBits (5, 15) i)
  where
@@ -134,12 +136,17 @@ encode JCoding{_jOpcode} JArgs{rs1, rs2, jImm} =
     .|. cJImm jImm
 encode JAbsCoding{_jaOpcode} JAbsArgs{jImm} =
   cOpcode _jaOpcode .|. cJImm jImm
-encode LSWCoding{_lwOpcode, memMode, isStore} LSWArgs{rs, rd} =
+encode LWCoding{_lwOpcode, memMode} LSWArgs{rs, rd} =
   cOpcode _lwOpcode
     .|. cRd rd
     .|. cRs1 rs
     .|. cMemMode memMode
-    .|. cLSWSel (if isStore then 1 else 0 :: Int)
+encode SWCoding{_swOpcode, memMode} LSWArgs{rs, rd} =
+  cOpcode _swOpcode
+    .|. cRs1 rs
+    .|. cRs2 rd
+    .|. cMemMode memMode
+    .|. cLSWSel (0 :: Word8)
 
 regRange :: (Enum b, Show b, Num b) => [Char] -> (b, b) -> b -> [([Char], b)]
 regRange nameBase (mapFrom, mapTo) nameFrom = [(nameBase ++ show (nameFrom + i), mapFrom + i) | i <- [0 .. n - 1]]
