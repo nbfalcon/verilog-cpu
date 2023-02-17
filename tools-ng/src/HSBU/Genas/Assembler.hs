@@ -106,7 +106,7 @@ assemblePass Assembler'{i2enc} = fmap (toLazyByteString . mconcat) . mapM (encod
     Nothing -> newError locInstructionName ("Unknown instruction " ++ instructionId) >> failAssembly
     Just coder -> do
       encoded <- encoder coder $ EncodeMe{instructionId, args, locInstructionName, locArgs}
-      pure $ word32BE encoded
+      pure $ word32LE encoded
   encodeI _ip (LOpInjection (OStringInCode{text})) = pure $ T.encodeUtf8Builder text
   encodeI ip (LOpInjection (OAlignDecl{alignTo})) = pure $ stimesM ((alignTo - ip) `mod` alignTo) $ word8 0
 

@@ -1,6 +1,6 @@
 nop
 addi $t0, $r0, hello_world
-lw $r3, $t0
+lb $r3, $t0
 debugDumpState
 hlt
 

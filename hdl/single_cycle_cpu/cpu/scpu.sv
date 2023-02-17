@@ -15,7 +15,7 @@ module scpu
   );
   wire cpu_word iReg;
   wire cpu_word outw2;
-  ram_unit ram(.*, .address1(pc), .outw1(iReg), .address2(r1), .port2isStore(memStore), .inw2(r2));
+  ram_unit ram(.*, .address1(pc), .outw1(iReg), .memMode2(lsMode), .address2(r1), .port2isStore(memStore), .inw2(r2));
 
   // Decode
   wire reg_select rs1;

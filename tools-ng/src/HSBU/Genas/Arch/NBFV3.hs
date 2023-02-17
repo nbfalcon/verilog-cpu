@@ -105,9 +105,9 @@ cRs2 = theseBits (16, 20)
 cFunct :: CodingHelper
 cFunct = theseBits (21, 31)
 cLSWSel :: CodingHelper
-cLSWSel = theseBits (31, 31)
+cLSWSel = cFunct . theseBits (10, 10)
 cMemMode :: CodingHelper
-cMemMode = theseBits (22, 21)
+cMemMode = cFunct . theseBits (0, 1)
 cJImm :: CodingHelper
 cJImm jImm = cRd (exBits (0, 4) i) .|. cFunct (exBits (5, 15) i)
  where
@@ -146,7 +146,7 @@ encode SWCoding{_swOpcode, memMode} LSWArgs{rs, rd} =
     .|. cRs1 rs
     .|. cRs2 rd
     .|. cMemMode memMode
-    .|. cLSWSel (0 :: Word8)
+    .|. cLSWSel (1 :: Word8)
 
 regRange :: (Enum b, Show b, Num b) => [Char] -> (b, b) -> b -> [([Char], b)]
 regRange nameBase (mapFrom, mapTo) nameFrom = [(nameBase ++ show (nameFrom + i), mapFrom + i) | i <- [0 .. n - 1]]
