@@ -3,7 +3,7 @@ module cond_jmp_mux
 (
     input  jmp_cond jmpMode,
     input  cpu_word aluResult,
-    output bit      shouldJump
+    output          shouldJump
 );
   wire signBit = aluResult[31];
 

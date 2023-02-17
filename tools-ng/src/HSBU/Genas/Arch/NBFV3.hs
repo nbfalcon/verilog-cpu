@@ -10,14 +10,12 @@
 
 module HSBU.Genas.Arch.NBFV3 where
 
-import Control.Applicative
 import Data.Bits
 import Data.Int
 import Data.Map qualified as M
 import Data.Word (Word32, Word8)
 import HSBU.Genas.AssemblerCore
 import HSBU.Genas.InstructionParser
-import Text.Read (readMaybe)
 
 type Reg = Int
 
@@ -28,7 +26,8 @@ data NoArgs = NoArgs deriving (Show, Args)
 data R3Args = R3Args {rd :: Reg, rs1 :: Reg, rs2 :: Reg} deriving (Show, Args)
 data R2IArgs = R2IArgs {rd :: Reg, rs :: Reg, aluImm :: Int16} deriving (Show, Args)
 data JArgs = JArgs {rs1 :: Reg, rs2 :: Reg, jImm :: Int16} deriving (Show, Args)
-newtype JAbsArgs = JAbsArgs {jImm :: Int16} deriving stock (Show) deriving anyclass Args
+newtype JAbsArgs = JAbsArgs {jImm :: Int16} deriving stock (Show)
+  deriving anyclass (Args)
 data LSWArgs = LSWArgs {rd :: Reg, rs :: Reg} deriving (Show, Args)
 
 data Instruction args where
@@ -151,7 +150,8 @@ regRange nameBase (mapFrom, mapTo) nameFrom = [(nameBase ++ show (nameFrom + i),
 regTable :: M.Map String Int
 regTable =
   M.fromList $
-    [("zero", 0), ("at", 1)]
+    regRange "r" (0, 31) 0
+      ++ [("zero", 0), ("at", 1)]
       ++ regRange "v" (2, 3) 0
       ++ regRange "a" (4, 7) 0
       ++ regRange "t" (8, 15) 0
@@ -161,9 +161,9 @@ regTable =
       ++ [("gp", 28), ("sp", 29), ("fp", 30), ("ra", 31)]
 
 parseReg :: String -> InstructionArgParserM Int
-parseReg ('r':num) = pure $ read num
 parseReg regName = maybe (eReg >> failedDefaultValue 0) pure $ regName `M.lookup` regTable
-  where eReg = instructionParserError $ "Invalid register name " ++ regName
+ where
+  eReg = instructionParserError $ "Invalid register name " ++ regName
 
 reg1 :: InstructionArgParser Int
 reg1 = reg `composeParser` parseReg

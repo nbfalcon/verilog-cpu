@@ -6,9 +6,12 @@ module scpu
     output logic haltTriggered,
     output logic debugDump
 );
+  wire muxJump;
+  cond_jmp_mux cJmp(.*, .aluResult(outlo), .shouldJump(muxJump));
+  
   wire pc_word pc;
   pc_unit pcu (
-      .*, .pcIn(32'(jmpImm)), .shouldJump(jmpEn), .pcOut(pc)
+      .*, .pcIn(32'(jmpImm)), .shouldJump(jmpEn && muxJump), .pcOut(pc)
   );
   wire cpu_word iReg;
   rom_simple rom(.address(pc), .outw(iReg));
