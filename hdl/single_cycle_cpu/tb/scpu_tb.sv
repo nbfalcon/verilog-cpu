@@ -2,19 +2,14 @@ module scpu_tb (
     input clk,
     input reset
 );
-  wire haltWire, dumpState;
-  scpu dut (
-      clk,
-      reset,
-      haltWire,
-      dumpState
-  );
+  wire haltTriggered, debugDump;
+  scpu dut (.*);
 
   //    // initial $monitor ("%d: %b", $time, clk);
   //    initial begin
   //       $dumpfile("cpu.vcd");
   //       $dumpvars;
-  //       // $monitor("%d: hlt=%b, pc=%x, iReg=%x", $time, haltWire, dut.curPc, dut.iReg);
+  //       // $monitor("%d: hlt=%b, pc=%x, iReg=%x", $time, haltTriggered, dut.curPc, dut.iReg);
   //       // $monitor("%d: r3 = %d", $time, dut.regs.m_registers[3]);
   //    end
 
@@ -26,7 +21,7 @@ module scpu_tb (
   //     $display("Tick");
   //   end
 
-  always @(posedge haltWire) begin
+  always @(posedge haltTriggered) begin
     $display("%d: Finish by hlt\n", $time);
     $finish;
   end
@@ -35,7 +30,7 @@ module scpu_tb (
                r2 = dut.regs.m_registers[2],
                r3 = dut.regs.m_registers[3];
 
-  always @(posedge dumpState) begin
+  always @(posedge debugDump) begin
     $display("%d: r1=%d, r2=%x, r3=%x, char '%c'\n", $time, r1, r2, r3, r2[7:0]);
   end
 endmodule  // cpu_tb
