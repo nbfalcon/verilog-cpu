@@ -1,0 +1,15 @@
+CompileFlags:
+  Add:
+  - "-xc++"
+  - "-I."
+  - "-I../build"
+  - "-I/usr/share/verilator/include"
+  - "-I/usr/share/verilator/include/vltstd"
+  - "-I/usr/include"
+  - "-I/usr/local/include"
+  - "-I/usr/lib/gcc/x86_64-linux-gnu/11/include"
+  - "-I/usr/include/c++/11/"
+  - "-I/usr/include/x86_64-linux-gnu/c++/11/"
+  - "-DVM_COVERAGE=0"
+  - "-DVM_SC=0"
+  - "-DVM_TRACE=1"

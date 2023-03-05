@@ -1,7 +1,7 @@
 BUILD ?= $(PWD)/build
 
 HDL = $(PWD)
-TOOLS_NG = $(PWD)/../../tools-ng
+TOOLS_NG = $(PWD)/../tools-ng
 
 SIM_PROG ?= copy_loop
 
@@ -17,7 +17,7 @@ $(BUILD)/output.hex: $(HDL)/asm/$(SIM_PROG).S
 	$(BUILD)/Genas $(HDL)/asm/$(SIM_PROG).S -o $(BUILD)/output.hex
 
 $(BUILD)/Genas:
-	cd $(TOOLS_NG); stack build && stack install --local-bin-path $(BUILD)
+	cd $(TOOLS_NG) && stack build && stack install --local-bin-path $(BUILD)
 
 $(BUILD)/Vscpu_tb: simulator_tb/main.cc tb/*.sv inc/*.sv cpu/*.sv
 	echo "Simulating $(SIM_PROG)..."
