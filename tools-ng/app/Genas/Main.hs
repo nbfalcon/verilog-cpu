@@ -18,6 +18,7 @@ import System.IO
 data Options = Options
     { assembleMe :: FilePath
     , outputObject :: FilePath
+    , debugDumpLL :: Bool
     }
 
 optionsParser :: Parser Options
@@ -25,6 +26,7 @@ optionsParser =
     Options
         <$> strArgument (metavar "source" <> help "Assemble this source file")
         <*> strOption (short 'o' <> long "output" <> metavar "outfile" <> help "Binary file to be created after assembly")
+        <*> switch (long "dumpLL" <> help "Dump low-level AST")
 
 fullOptionsParser :: ParserInfo Options
 fullOptionsParser = info (bonusOptions *> optionsParser) description
@@ -34,7 +36,7 @@ fullOptionsParser = info (bonusOptions *> optionsParser) description
     description = fullDesc <> progDesc "Genas" <> header "Genas - the generic assembler of HSBU"
 
 runProgram :: Options -> IO ()
-runProgram Options{assembleMe, outputObject} = do
+runProgram Options{assembleMe, outputObject, debugDumpLL} = do
     content <- T.readFile assembleMe
     let result = parse DialectMIPS.sourceFile assembleMe content
     case result of
@@ -48,7 +50,8 @@ runProgram Options{assembleMe, outputObject} = do
                     | not $ null errors = "Assembly succeeded with errors."
                     | otherwise = "Assembly succeeded."
             (if outputObject == "-" then hPutStrLn stderr else putStrLn) status
-            forM_ assembled $ (if outputObject == "-" then BL.putStr else BS.writeFile outputObject) . hexEncodeWordsBE
+            when debugDumpLL $ mapM_ (mapM_ print) (snd <$> assembled)
+            forM_ (fst <$> assembled) $ (if outputObject == "-" then BL.putStr else BS.writeFile outputObject) . hexEncodeWordsBE
 
 main :: IO ()
 main = do

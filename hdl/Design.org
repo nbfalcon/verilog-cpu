@@ -1,0 +1,125 @@
+#+title: Design
+* Memory-Mapped Peripherals
+- DMA only supports a special DMA-capable memory region (special SRAM
+  peripheral). This is shared by all peripherals. dma_buffers can only be
+  assigned to pointers within this region.
+- Address :: 8bit peripheral select + 24bit address
+- 0x0 :: fault-peripheral; always fails with sigill
+- 0x250 :: Peripheral-base, 12bit peripherals, 12 bit peripheral address
+- +0x0-0x3: peripheral_type
+- 0x4-0x7: peripheral_version
+** UART/DMAIO base interface
+#+begin_src c
+struct dmaio_peripheral {
+  u32 peripheral_type = c'UART';
+
+  dmaio_status status;
+
+  poll_io poll;
+
+  dma_ctl dma_trigger;
+  dma_side dma_read;
+  dma_side dma_write;
+
+  // From here: additional misc config (e.g. UART)
+  uart_config_x uart_config;
+};
+
+struct dmaio_status {
+  // DMA
+  u1 write_in_progress;
+  u1 read_in_progress;
+  /* read_side->buf_next can be modified */
+  u1 read_next_free;
+  u1 write_next_free;
+
+  // Polling
+  u1 poll_read_ready;
+  u1 poll_write_ready;
+};
+#+end_src
+*** Polling
+#+begin_src c
+struct poll_status {
+  u1 read_ready;
+  u1 write_ready;
+};
+
+struct poll_io {
+  poll_status status;
+
+  u32 read;
+  u32 write;
+};
+#+end_src
+*** DMA/interrupt
+#+end_src
+**** Basic buffers/callbacks
+Every Buffer is duplicated; there is a "next" double buffer, so that buffers can
+be prepared while DMA is still in progress. For this, the _base, _size, _ring,
+_interrupt_when fields are duplicated.
+
+#+begin_src c
+enum dma_why {
+  WHEN_REACHED,
+  BUFFER_FINISHED
+};
+
+typedef __calling_convention__((dma_interrupt)) void dma_callback(i32 dma_why, void *buf, u32 size, u32 ring_base);
+
+struct dma_buffer {
+  u32 token;
+
+  void *base;
+  // Must be less than 0xFFFF
+  u32 size;
+  u32 ring_base_offset = 0;
+
+  // If NULL, no callback is invoked.
+  dma_callback *dma_cb = NULL;
+  /**
+    ,* Invoke the callback whenever this many bytes are xferred, or the buffer is
+    ,* filled, whichever comes first
+    ,*/
+  u32 callback_when = 0xFFFF;
+};
+
+// Either read or write
+struct dma_side {
+  const dma_buffer buf_active;
+  dma_buffer buf_next;
+};
+#+end_src
+**** Control
+#+begin_src c
+enum dma_ctl_cmd {
+  // Nothing for this side
+  NOP,
+  // Cancel this side
+  CANCEL,
+  // Queue the next buffer after the active one is finished
+  QUEUE_NEXT,
+  // CANCEL + QUEUE_NEXT in one command
+  REPLACE_NEXT,
+};
+
+struct dma_ctl {
+  dma_ctl_cmd read_cmd;
+  dma_ctl_cmd write_cmd;
+};
+#+end_src
+
+The status register can be read using dma_status. The control register can
+atomically queue a command.
+*** UART Config
+#+begin_src c
+struct uart_config_x {
+  u32 baud_rate;
+};
+#+end_src
+*** Design in Verilog
+- Each DMA peripheral has a state, containing:
+  + a common state, including a buffer pointer and config SRAM
+- There is a single DMAIO user request decoder; it outputs lower-level signals
+  that configures a generic peripheral state, which is multiplexed based on the
+  peripheral address.

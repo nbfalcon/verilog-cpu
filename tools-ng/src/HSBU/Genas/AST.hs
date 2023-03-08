@@ -1,4 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module HSBU.Genas.AST where
 
@@ -64,4 +66,4 @@ data LLine
     deriving (Show)
 type LAST = [LLine]
 
-data EncodeMe = EncodeMe {instructionId :: String, args :: [LArg], locInstructionName :: SLocation, locArgs :: [SLocation]}
+data EncodeMe = EncodeMe {instructionId :: String, args :: [LArg], locInstructionName :: SLocation, locArgs :: [SLocation], instructionPointer :: Int32}

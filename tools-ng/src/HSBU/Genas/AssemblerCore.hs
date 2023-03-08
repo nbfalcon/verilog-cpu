@@ -1,4 +1,6 @@
 {-# LANGUAGE TypeFamilyDependencies #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module HSBU.Genas.AssemblerCore where
 

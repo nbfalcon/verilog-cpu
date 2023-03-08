@@ -13,9 +13,15 @@ module scpu
   pc_unit pcu (
       .*, .pcIn(32'(jmpImm)), .shouldJump(jmpEn && muxJump), .pcOut(pc)
   );
+
+  // FIXME: zero_region should be shared somehow
+  mmap_region regions[3:0](.*);
+  zero_region z0(.bus(regions[0])), z1(.bus(regions[2])), z2(.bus(regions[3]));
+  rom_region rom_region(.bus(regions[1]));
+
   wire cpu_word iReg;
   wire cpu_word outw2;
-  ram_unit ram(.*, .address1(pc), .outw1(iReg), .memMode2(lsMode), .address2(r1), .port2isStore(memStore), .inw2(r2));
+  memory_controller ram(.*, .address1(pc), .outw1(iReg), .memMode2(lsMode), .address2(r1), .port2isStore(memStore), .inw2(r2));
 
   // Decode
   wire reg_select rs1;

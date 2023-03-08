@@ -16,6 +16,7 @@ import Data.Map qualified as M
 import Data.Word (Word32, Word8)
 import HSBU.Genas.AssemblerCore
 import HSBU.Genas.InstructionParser
+import HSBU.Genas.AST
 
 type Reg = Int
 
@@ -116,32 +117,32 @@ cJImm jImm = cRd (exBits (0, 4) i) .|. cFunct (exBits (5, 15) i)
 cImm :: CodingHelper
 cImm = theseBits (16, 31)
 
-encode :: Coding args -> args -> Word32
-encode R3Coding{_r3Opcode, funct} R3Args{rs1, rs2, rd} =
+encode :: EncodeMe -> Coding args -> args -> Word32
+encode _enc R3Coding{_r3Opcode, funct} R3Args{rs1, rs2, rd} =
   cOpcode _r3Opcode
     .|. cRd rd
     .|. cRs1 rs1
     .|. cRs2 rs2
     .|. cFunct funct
-encode R2ICoding{_r2iOpcode} R2IArgs{rd, rs, aluImm} =
+encode _enc R2ICoding{_r2iOpcode} R2IArgs{rd, rs, aluImm} =
   cOpcode _r2iOpcode
     .|. cRd rd
     .|. cRs1 rs
     .|. cImm aluImm
-encode SimpleCoding{_simpleOpcode} _args = fromIntegral _simpleOpcode
-encode JCoding{_jOpcode} JArgs{rs1, rs2, jImm} =
+encode _enc SimpleCoding{_simpleOpcode} _args = fromIntegral _simpleOpcode
+encode EncodeMe{instructionPointer} JCoding{_jOpcode} JArgs{rs1, rs2, jImm} =
   cOpcode _jOpcode
     .|. cRs1 rs1
     .|. cRs2 rs2
-    .|. cJImm jImm
-encode JAbsCoding{_jaOpcode} JAbsArgs{jImm} =
-  cOpcode _jaOpcode .|. cJImm jImm
-encode LWCoding{_lwOpcode, memMode} LSWArgs{rs, rd} =
+    .|. cJImm (jImm - fromIntegral instructionPointer)
+encode EncodeMe{instructionPointer} JAbsCoding{_jaOpcode} JAbsArgs{jImm} =
+  cOpcode _jaOpcode .|. cJImm (jImm - fromIntegral instructionPointer)
+encode _enc LWCoding{_lwOpcode, memMode} LSWArgs{rs, rd} =
   cOpcode _lwOpcode
     .|. cRd rd
     .|. cRs1 rs
     .|. cMemMode memMode
-encode SWCoding{_swOpcode, memMode} LSWArgs{rs, rd} =
+encode _enc SWCoding{_swOpcode, memMode} LSWArgs{rs, rd} =
   cOpcode _swOpcode
     .|. cRs1 rd
     .|. cRs2 rs
@@ -200,7 +201,7 @@ encodeInstruction :: forall args. ParserFor args => Instruction args -> EncodeFu
 encodeInstruction i encodeMe = do
   args' <- runGetArgs (getParser @args) encodeMe
   let coding = getCoding i
-  return $ encode coding args'
+  return $ encode encodeMe coding args'
 
 defInstruction :: ParserFor args => String -> Instruction args -> InstructionDef
 defInstruction name i = InstructionDef{name = name, encoder = encodeInstruction i}

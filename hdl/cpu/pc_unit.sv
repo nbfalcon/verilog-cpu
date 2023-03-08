@@ -11,8 +11,8 @@ module pc_unit
 );
   pc_word curPc;
   always_ff @(posedge clk) begin
-    if (reset) curPc <= 0;
-    else if (shouldJump) curPc <= pcIn;
+    if (reset) curPc <= 32'h01000000;
+    else if (shouldJump) curPc <= curPc + pcIn;
     else curPc <= curPc + 4;
   end
   assign pcOut = curPc;

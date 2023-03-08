@@ -17,6 +17,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import HSBU.Genas.AST
 import HSBU.Genas.AssemblerCore
+import qualified Data.ByteString as BS
 
 data UnwrapPassState = UnwrapPassState {curUseDecl :: T.Text, nextPseudoLabel :: !Int, use2Ast :: M.Map T.Text SAST}
 defaultUnwrapState :: UnwrapPassState
@@ -100,17 +101,26 @@ stimesM 0 = const mempty
 stimesM n = stimes n
 
 assemblePass :: Assembler' -> LAST -> AssemblerMonad BL.ByteString
-assemblePass Assembler'{i2enc} = fmap (toLazyByteString . mconcat) . mapM (encodeI 0)
+assemblePass Assembler'{i2enc} = fmap (toLazyByteString . mconcat) . flip evalStateT 0 . mapM encodeI
  where
-  encodeI _ip LInstruction{instructionId, args, locInstructionName, locArgs} = flip mplus (pure mempty) $ case instructionId `M.lookup` i2enc of
-    Nothing -> newError locInstructionName ("Unknown instruction " ++ instructionId) >> failAssembly
+  encodeI :: LLine -> StateT Int32 AssemblerMonad Builder
+  encodeI LInstruction{instructionId, args, locInstructionName, locArgs} = flip mplus (pure mempty) $ case instructionId `M.lookup` i2enc of
+    Nothing -> lift $ newError locInstructionName ("Unknown instruction " ++ instructionId) >> failAssembly
     Just coder -> do
-      encoded <- encoder coder $ EncodeMe{instructionId, args, locInstructionName, locArgs}
+      ip <- get
+      put (ip + 4)
+      encoded <- lift $ encoder coder $ EncodeMe{instructionId, args, locInstructionName, locArgs, instructionPointer=ip}
       pure $ word32LE encoded
-  encodeI _ip (LOpInjection (OStringInCode{text})) = pure $ T.encodeUtf8Builder text
-  encodeI ip (LOpInjection (OAlignDecl{alignTo})) = pure $ stimesM ((alignTo - ip) `mod` alignTo) $ word8 0
+  encodeI (LOpInjection (OStringInCode{text})) = do
+    -- FIXME: this does not store the correct offset
+    pure $ T.encodeUtf8Builder text
+  encodeI (LOpInjection (OAlignDecl{alignTo})) = do
+    ip <- get
+    let alignBytes = (alignTo - ip) `mod` alignTo
+    put $ ip + alignBytes
+    pure $ stimesM ((alignTo - ip) `mod` alignTo) $ word8 0
 
-assemble :: Assembler -> SAST -> AssemblerMonad BL.ByteString
+assemble :: Assembler -> SAST -> AssemblerMonad (BL.ByteString, LAST)
 assemble asm src = do
   let (ast', use2Ast) = unwrapWrapArgs src
   let ast'' = patchUnwrapArgs use2Ast ast'
@@ -118,4 +128,5 @@ assemble asm src = do
   let labels = labelingPass ast''
   lAST <- reduceASTPass labels ast''
   let asm' = getAssembler' asm
-  assemblePass asm' lAST
+  r <- assemblePass asm' lAST
+  pure (r, lAST)
